@@ -1,0 +1,21 @@
+{
+  "name": "shiftproof",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Lightweight web app for restaurants, cafés, and boutique hotels to complete recurring shift routines, capture proof, and track exceptions.",
+  "license": "UNLICENSED",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "workspaces": [
+    "apps/*"
+  ],
+  "scripts": {
+    "dev": "echo \"[shiftproof] No app yet. Scaffold apps/web, then wire this script to it.\" && exit 0",
+    "build": "echo \"[shiftproof] No build configured yet. Wire this to apps/web build.\" && exit 0",
+    "lint": "echo \"[shiftproof] No linter configured yet.\" && exit 0",
+    "format": "echo \"[shiftproof] No formatter configured yet.\" && exit 0",
+    "check": "echo \"[shiftproof] No checks configured yet (type-check + lint go here).\" && exit 0"
+  }
+}
