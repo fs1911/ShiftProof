@@ -69,9 +69,18 @@ Cloudflare is **not part of the MVP** and must not be introduced without approva
 
 Until explicitly approved, treat Cloudflare as a future option only.
 
+## Web app implementation (current scaffold)
+
+The app under `apps/web/` is **Next.js (App Router) + TypeScript + Tailwind CSS**, with `@supabase/ssr` for auth/session. It follows a few deliberate patterns:
+
+- **Route protection is layered.** `middleware.ts` refreshes the Supabase session on every request and redirects unauthenticated traffic away from `/app/*`; `app/app/layout.tsx` re-checks the session at render time and fails closed. Public routes (`/`, `/login`) are kept separate from the protected `/app` area.
+- **Three Supabase clients, clearly separated.** Browser (`lib/supabase/client.ts`) and server (`lib/supabase/server.ts`) both use the anon key under RLS; the service-role client (`lib/supabase/admin.ts`) is server-only, bypasses RLS, and is used sparingly.
+- **Lazy, fail-clearly env.** `lib/env.ts` reads variables through functions at request time, so the app builds without secrets but throws a clear error the moment a required value is missing.
+- **Thin data layer.** `lib/data/*` provides read-only helpers (`getRoutines`, `getRecentRuns`, `getExceptions`) that return a `{ rows, error }` result so screens degrade gracefully before Supabase is connected. Full CRUD is deferred.
+
 ## Deployment logic
 
-- **App:** push to the deploy branch → Railway builds `apps/web` → deploys → serves at `APP_BASE_URL`.
+- **App:** push to the deploy branch → Railway builds `apps/web` via `npm run build` → serves via `npm run start` (Next.js honors Railway's `PORT`) → available at `APP_BASE_URL`. Build/start are declared in `railway.json`.
 - **Database:** SQL changes are made in `supabase/schema.sql` / `policies.sql` in the repo first, then applied to the Supabase project. The repo is the canonical definition; Supabase reflects it.
 - **Secrets:** never committed. `.env.example` is the contract; real values live in Railway (and Supabase project settings).
 
