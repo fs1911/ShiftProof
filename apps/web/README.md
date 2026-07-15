@@ -48,8 +48,10 @@ apps/web/
         members/page.tsx    # Manage members of the active location
         actions.ts          # createLocation, updateLocation, add/change/removeMember
       notifications/
-        page.tsx            # In-app inbox (mark read, generate digest)
-        actions.ts          # markRead, markAllRead, generateDigest
+        page.tsx            # In-app inbox (mark read, generate digest, email opt-in)
+        actions.ts          # markRead, markAllRead, generateDigest, setEmailOptIn
+    api/
+      cron/due-digest/route.ts  # Secret-gated daily digest trigger (all locations)
   components/
     app-shell.tsx           # Top bar + side nav + content area
     ui.tsx                  # Small UI primitives + shared tones/classes
@@ -69,7 +71,10 @@ apps/web/
       reports.ts            # getRunSummary/getExceptionSummary, CSV export helpers
       members.ts            # getLocationMembers() (RPC), getOwnedLocations()
       schedule.ts           # getDueRoutines() — due/overdue/done in location tz
-      notifications.ts      # getNotifications(), getUnreadNotificationCount()
+      notifications.ts      # getNotifications(), getUnreadNotificationCount(), getEmailOptIn()
+      digest.ts             # generateAndSendDigest() — in-app + Resend email (admin)
+    email/
+      resend.ts             # sendEmail() via Resend (fetch, server-only)
   types/db.ts               # Hand-written entity types (mirror schema.sql)
   middleware.ts             # Wires updateSession() across requests
 ```
@@ -99,8 +104,10 @@ apps/web/
 Required variables (see root `.env.example`):
 
 - `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` — public, browser + server
-- `SUPABASE_SERVICE_ROLE_KEY` — server-only (used only by `lib/supabase/admin.ts`)
+- `SUPABASE_SERVICE_ROLE_KEY` — server-only; used by `lib/supabase/admin.ts` for the sanctioned system flows (digest generation + cron)
 - `APP_BASE_URL` — public base URL of the deployment
+- `RESEND_API_KEY`, `EMAIL_FROM` — server-only; enable digest emails via Resend (unset ⇒ in-app-only)
+- `CRON_SECRET` — server-only; shared secret for `POST /api/cron/due-digest` (unset ⇒ endpoint refuses all)
 
 Env is read lazily in `lib/env.ts`; a missing required value throws a clear error at request time rather than failing the build silently.
 

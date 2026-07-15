@@ -61,12 +61,14 @@ create trigger locations_set_updated_at
 -- ---------------------------------------------------------------------------
 
 create table users (
-  id         uuid primary key references auth.users (id) on delete cascade,
-  email      text not null,
-  full_name  text,
-  is_active  boolean not null default true,
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
+  id           uuid primary key references auth.users (id) on delete cascade,
+  email        text not null,
+  full_name    text,
+  is_active    boolean not null default true,
+  -- Whether the user receives digest emails (they manage this themselves).
+  notify_email boolean not null default true,
+  created_at   timestamptz not null default now(),
+  updated_at   timestamptz not null default now()
 );
 
 create trigger users_set_updated_at
@@ -274,10 +276,14 @@ create table notifications (
   related_routine_id uuid references routines (id) on delete set null,
   dedupe_key         text,
   is_read            boolean not null default false,
+  -- When the digest email for this notification was sent (null = not emailed).
+  emailed_at         timestamptz,
   created_at         timestamptz not null default now()
 );
 
 create index notifications_user_unread_idx on notifications (user_id, is_read);
 create index notifications_location_idx     on notifications (location_id);
+-- Unique per (user, dedupe_key). NULLs are distinct in Postgres, so ad-hoc
+-- notifications (dedupe_key null) are never deduped; keyed digests are.
 create unique index notifications_user_dedupe_idx
-  on notifications (user_id, dedupe_key) where dedupe_key is not null;
+  on notifications (user_id, dedupe_key);

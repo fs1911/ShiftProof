@@ -640,7 +640,7 @@ begin
   from user_locations ul
   where ul.location_id = p_location_id
     and ul.role in ('owner', 'manager')
-  on conflict (user_id, dedupe_key) where dedupe_key is not null do nothing;
+  on conflict (user_id, dedupe_key) do nothing;
 
   get diagnostics v_count = row_count;
   return v_count;

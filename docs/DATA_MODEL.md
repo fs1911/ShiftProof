@@ -219,9 +219,12 @@ locations ─┬─< user_locations >─ users
 - `type` (text, e.g. `due_digest`)
 - `title`, `body` (optional)
 - `related_routine_id` → `routines.id` (nullable)
-- `dedupe_key` (text, nullable) — makes generation idempotent; unique per (`user_id`, `dedupe_key`)
+- `dedupe_key` (text, nullable) — makes generation idempotent; unique per (`user_id`, `dedupe_key`). NULLs are distinct, so ad-hoc notifications are never deduped
 - `is_read` (default false)
+- `emailed_at` (timestamptz, nullable) — when the digest email was sent; null = not emailed
 - `created_at`
+
+Recipients' digest-email opt-in lives on `users.notify_email` (boolean, default true), which each user manages for their own row.
 
 **Access / creation:** RLS lets a user read and mark-read only their **own** notifications; there is no client INSERT/DELETE policy. Rows are created only by the `create_digest_notifications` `SECURITY DEFINER` function, which fans a digest (computed app-side in `lib/data/schedule.ts`) out to every owner/manager of a location, idempotently per day via `dedupe_key`.
 

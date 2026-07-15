@@ -13,9 +13,9 @@ import {
   secondaryButtonClass,
 } from "@/components/ui";
 import { canManage, getAppContext } from "@/lib/auth/context";
-import { getNotifications } from "@/lib/data/notifications";
+import { getEmailOptIn, getNotifications } from "@/lib/data/notifications";
 
-import { generateDigest, markAllRead, markRead } from "./actions";
+import { generateDigest, markAllRead, markRead, setEmailOptIn } from "./actions";
 
 export const dynamic = "force-dynamic";
 
@@ -35,7 +35,10 @@ export default async function NotificationsPage({
   }
 
   const manager = canManage(ctx.context.role);
-  const { rows, error } = await getNotifications(50);
+  const [{ rows, error }, emailOptIn] = await Promise.all([
+    getNotifications(50),
+    getEmailOptIn(),
+  ]);
   const hasUnread = rows.some((n) => !n.is_read);
 
   return (
@@ -65,6 +68,28 @@ export default async function NotificationsPage({
 
       <ErrorBanner message={searchParams.error} />
       <DataNotice error={error} />
+
+      <Card className="mb-6 p-4">
+        <form action={setEmailOptIn} className="flex items-center justify-between gap-3">
+          <div>
+            <p className="text-sm font-medium text-slate-700">Email me digests</p>
+            <p className="text-xs text-slate-500">
+              Receive the daily due/overdue digest for your locations by email.
+            </p>
+          </div>
+          <label className="flex items-center gap-2 text-sm text-slate-700">
+            <input
+              type="checkbox"
+              name="notify_email"
+              defaultChecked={emailOptIn}
+              className="h-4 w-4 rounded border-slate-300"
+            />
+            <button type="submit" className={secondaryButtonClass}>
+              Save
+            </button>
+          </label>
+        </form>
+      </Card>
 
       {rows.length === 0 ? (
         <EmptyState
@@ -96,6 +121,7 @@ export default async function NotificationsPage({
                   ) : null}
                   <p className="mt-1 text-xs text-slate-400">
                     {formatDate(n.created_at)}
+                    {n.emailed_at ? " · emailed" : null}
                     {n.related_routine_id ? (
                       <>
                         {" · "}
