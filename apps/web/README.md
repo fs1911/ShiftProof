@@ -47,6 +47,9 @@ apps/web/
         locations/page.tsx  # Create/manage owned locations
         members/page.tsx    # Manage members of the active location
         actions.ts          # createLocation, updateLocation, add/change/removeMember
+      notifications/
+        page.tsx            # In-app inbox (mark read, generate digest)
+        actions.ts          # markRead, markAllRead, generateDigest
   components/
     app-shell.tsx           # Top bar + side nav + content area
     ui.tsx                  # Small UI primitives + shared tones/classes
@@ -66,6 +69,7 @@ apps/web/
       reports.ts            # getRunSummary/getExceptionSummary, CSV export helpers
       members.ts            # getLocationMembers() (RPC), getOwnedLocations()
       schedule.ts           # getDueRoutines() — due/overdue/done in location tz
+      notifications.ts      # getNotifications(), getUnreadNotificationCount()
   types/db.ts               # Hand-written entity types (mirror schema.sql)
   middleware.ts             # Wires updateSession() across requests
 ```

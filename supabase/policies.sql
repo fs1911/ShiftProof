@@ -585,3 +585,66 @@ grant execute on function list_location_members(uuid) to authenticated;
 grant execute on function add_member_by_email(uuid, text, user_role) to authenticated;
 grant execute on function set_member_role(uuid, uuid, user_role) to authenticated;
 grant execute on function remove_member(uuid, uuid) to authenticated;
+
+-- ---------------------------------------------------------------------------
+-- notifications
+-- A user reads and updates (mark read) only their own notifications. There is
+-- no client INSERT/DELETE policy: rows are created solely by the
+-- create_digest_notifications SECURITY DEFINER function below.
+-- ---------------------------------------------------------------------------
+
+alter table notifications enable row level security;
+
+create policy notifications_select_self
+  on notifications for select
+  to authenticated
+  using (user_id = auth.uid());
+
+create policy notifications_update_self
+  on notifications for update
+  to authenticated
+  using (user_id = auth.uid())
+  with check (user_id = auth.uid());
+
+-- Fan out one digest notification per owner/manager of the location, idempotent
+-- per (user, date) via dedupe_key. The "due/overdue" figures are computed in the
+-- app (lib/data/schedule.ts) — the single source of truth for scheduling rules —
+-- and passed in as title/body; this function only distributes them. Caller must
+-- be a manager+ of the location. Runs under the user's session (rpc), never the
+-- service-role key.
+--
+-- Scheduler note: a future daily job can call this per location. Because the due
+-- figures are computed app-side, the job should hit an app endpoint that runs the
+-- computation and then calls this function, rather than a pure-SQL cron.
+create or replace function create_digest_notifications(
+  p_location_id uuid,
+  p_date date,
+  p_title text,
+  p_body text
+)
+returns integer
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_count int := 0;
+begin
+  if not has_location_role(p_location_id, 'manager') then
+    raise exception 'NOT_ALLOWED';
+  end if;
+
+  insert into notifications (location_id, user_id, type, title, body, dedupe_key)
+  select p_location_id, ul.user_id, 'due_digest', p_title, p_body,
+         'due_digest:' || p_date::text
+  from user_locations ul
+  where ul.location_id = p_location_id
+    and ul.role in ('owner', 'manager')
+  on conflict (user_id, dedupe_key) where dedupe_key is not null do nothing;
+
+  get diagnostics v_count = row_count;
+  return v_count;
+end;
+$$;
+
+grant execute on function create_digest_notifications(uuid, date, text, text) to authenticated;

@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 
 import { AppShell, type ShellLocation } from "@/components/app-shell";
 import { canManage, getAppContext } from "@/lib/auth/context";
+import { getUnreadNotificationCount } from "@/lib/data/notifications";
 import { createClient } from "@/lib/supabase/server";
 
 /**
@@ -43,6 +44,7 @@ export default async function AppLayout({
     : [];
   const activeLocationId = ctx.ok ? ctx.context.locationId : null;
   const userCanManage = ctx.ok && canManage(ctx.context.role);
+  const unreadCount = ctx.ok ? await getUnreadNotificationCount() : 0;
 
   return (
     <AppShell
@@ -50,6 +52,7 @@ export default async function AppLayout({
       locations={locations}
       activeLocationId={activeLocationId}
       canManage={userCanManage}
+      unreadCount={unreadCount}
     >
       {children}
     </AppShell>

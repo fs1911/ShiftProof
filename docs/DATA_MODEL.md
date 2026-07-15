@@ -208,6 +208,29 @@ locations ─┬─< user_locations >─ users
 
 ---
 
+## notifications
+
+**Purpose:** In-app inbox message for a user (e.g. a daily due/overdue digest). No external delivery — the app surfaces these directly.
+
+**Key fields:**
+- `id` (uuid, PK)
+- `location_id` → `locations.id`
+- `user_id` → `users.id` (the recipient)
+- `type` (text, e.g. `due_digest`)
+- `title`, `body` (optional)
+- `related_routine_id` → `routines.id` (nullable)
+- `dedupe_key` (text, nullable) — makes generation idempotent; unique per (`user_id`, `dedupe_key`)
+- `is_read` (default false)
+- `created_at`
+
+**Access / creation:** RLS lets a user read and mark-read only their **own** notifications; there is no client INSERT/DELETE policy. Rows are created only by the `create_digest_notifications` `SECURITY DEFINER` function, which fans a digest (computed app-side in `lib/data/schedule.ts`) out to every owner/manager of a location, idempotently per day via `dedupe_key`.
+
+**Relationships:**
+- Belongs to one `location` and one recipient `user`.
+- Optionally references a `routine`.
+
+---
+
 ## Notes on modeling choices
 
 - **`location_id` is denormalized** onto `routine_runs`, `photos`, and `exceptions` so Row Level Security policies can scope access with a single join to `user_locations`, without walking the whole chain.

@@ -33,12 +33,14 @@ export function AppShell({
   locations,
   activeLocationId,
   canManage,
+  unreadCount,
   children,
 }: {
   email: string | null;
   locations: ShellLocation[];
   activeLocationId: string | null;
   canManage: boolean;
+  unreadCount: number;
   children: ReactNode;
 }) {
   const pathname = usePathname();
@@ -58,6 +60,18 @@ export function AppShell({
             Shift<span className="text-brand-600">Proof</span>
           </Link>
           <div className="flex items-center gap-3">
+            <Link
+              href="/app/notifications"
+              className="relative rounded-md border border-slate-300 px-2 py-1.5 text-sm text-slate-700 hover:bg-slate-100"
+              aria-label={`Notifications${unreadCount > 0 ? ` (${unreadCount} unread)` : ""}`}
+            >
+              <span aria-hidden>🔔</span>
+              {unreadCount > 0 ? (
+                <span className="absolute -right-1.5 -top-1.5 inline-flex min-w-[1.1rem] items-center justify-center rounded-full bg-brand-600 px-1 text-xs font-semibold text-white">
+                  {unreadCount > 99 ? "99+" : unreadCount}
+                </span>
+              ) : null}
+            </Link>
             {locations.length > 1 ? (
               <LocationSwitcher
                 locations={locations}
