@@ -86,8 +86,7 @@ The `routine → run → proof → exception → follow-up` loop is implemented 
 - **Authoring (manager+):** create/edit routines and their ordered tasks (checkbox / value / photo / comment; required and photo flags). Task order is an integer `position`; reordering swaps neighbors (the position index is intentionally non-unique to keep swaps a simple two-step update).
 - **Execution (any member):** starting a run inserts a `routine_run` plus a `task_run` per task; staff capture status, value, and comment per task; completion is blocked until required tasks are done; runs can be abandoned.
 - **Exceptions:** any member raises run- or task-level exceptions; the raiser or a manager triages `open → in_progress → resolved` (resolution requires a note and stamps resolver + timestamp).
-
-Photo/Storage capture is deliberately deferred to the next block.
+- **Proof photos:** members upload photos per task while a run is in progress; binaries go to the private `shift-photos` Storage bucket under `<location_id>/<task_run_id>/<file>`, with a `photos` metadata row. Images render via short-lived server-signed URLs; photos are immutable (manager delete only); a `requires_photo` task can't be marked done without one. Storage RLS mirrors the table policies (member read/upload, manager delete) — never the service-role key.
 
 ## Deployment logic
 

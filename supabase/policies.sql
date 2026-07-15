@@ -327,3 +327,52 @@ create policy exceptions_delete_manager
   on exceptions for delete
   to authenticated
   using (has_location_role(location_id, 'manager'));
+
+-- ---------------------------------------------------------------------------
+-- Storage: proof photos bucket
+--
+-- Bucket "shift-photos" holds proof images. Object paths follow the convention
+--   <location_id>/<task_run_id>/<filename>
+-- so the first path segment is the owning location. Access mirrors the table
+-- RLS: members of the location may read and upload; managers may delete.
+--
+-- The `photos` table (above) holds the metadata row for each object; the binary
+-- lives here in Storage. These two are kept in sync by the app.
+--
+-- NOTE: creating the bucket via SQL requires running this file as a privileged
+-- role (e.g. the Supabase SQL editor). Alternatively create the bucket in the
+-- Storage dashboard (name: shift-photos, Public: off) and then apply just the
+-- policies below.
+-- ---------------------------------------------------------------------------
+
+-- Create the private bucket (id == name). Idempotent.
+insert into storage.buckets (id, name, public)
+values ('shift-photos', 'shift-photos', false)
+on conflict (id) do nothing;
+
+-- Members of the location (first path segment) may read objects.
+create policy shift_photos_select_member
+  on storage.objects for select
+  to authenticated
+  using (
+    bucket_id = 'shift-photos'
+    and is_location_member(((storage.foldername(name))[1])::uuid)
+  );
+
+-- Members of the location may upload objects under their location's prefix.
+create policy shift_photos_insert_member
+  on storage.objects for insert
+  to authenticated
+  with check (
+    bucket_id = 'shift-photos'
+    and is_location_member(((storage.foldername(name))[1])::uuid)
+  );
+
+-- Managers+ of the location may delete objects.
+create policy shift_photos_delete_manager
+  on storage.objects for delete
+  to authenticated
+  using (
+    bucket_id = 'shift-photos'
+    and has_location_role(((storage.foldername(name))[1])::uuid, 'manager')
+  );
