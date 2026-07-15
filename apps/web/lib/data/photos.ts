@@ -16,6 +16,7 @@ const PHOTO_COLUMNS =
  */
 export async function getRunPhotos(
   taskRunIds: string[],
+  locationId: string,
 ): Promise<{ byTaskRun: Record<string, PhotoWithUrl[]>; error: string | null }> {
   if (taskRunIds.length === 0) return { byTaskRun: {}, error: null };
 
@@ -24,6 +25,7 @@ export async function getRunPhotos(
     const { data, error } = await supabase
       .from("photos")
       .select(PHOTO_COLUMNS)
+      .eq("location_id", locationId)
       .in("task_run_id", taskRunIds)
       .order("created_at", { ascending: true });
 

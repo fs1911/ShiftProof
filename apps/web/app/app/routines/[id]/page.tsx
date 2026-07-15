@@ -9,6 +9,7 @@ import {
   EmptyState,
   ErrorBanner,
   Field,
+  NoLocationNotice,
   PageHeader,
   inputClass,
   primaryButtonClass,
@@ -45,8 +46,19 @@ export default async function RoutineDetailPage({
   searchParams: { error?: string };
 }) {
   const ctxResult = await getAppContext();
-  const manager = ctxResult.ok && canManage(ctxResult.context.role);
-  const { routine, error } = await getRoutineWithTasks(params.id);
+  if (!ctxResult.ok) {
+    return (
+      <div>
+        <PageHeader title="Routine" />
+        <NoLocationNotice />
+      </div>
+    );
+  }
+  const manager = canManage(ctxResult.context.role);
+  const { routine, error } = await getRoutineWithTasks(
+    params.id,
+    ctxResult.context.locationId,
+  );
 
   if (error) {
     return (

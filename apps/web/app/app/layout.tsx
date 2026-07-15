@@ -1,12 +1,17 @@
 import { redirect } from "next/navigation";
 
-import { AppShell } from "@/components/app-shell";
+import { AppShell, type ShellLocation } from "@/components/app-shell";
+import { getAppContext } from "@/lib/auth/context";
 import { createClient } from "@/lib/supabase/server";
 
 /**
  * Layout for all protected /app routes. Verifies the session server-side and
  * redirects unauthenticated users to /login. The middleware performs the same
  * guard at the edge; this is the defense-in-depth check at render time.
+ *
+ * Also resolves the user's locations so the shell can render the active-location
+ * switcher. A user with no membership still gets the shell chrome; individual
+ * pages render a "no location" notice.
  */
 export default async function AppLayout({
   children,
@@ -32,5 +37,15 @@ export default async function AppLayout({
 
   if (!authed) redirect("/login");
 
-  return <AppShell email={email}>{children}</AppShell>;
+  const ctx = await getAppContext();
+  const locations: ShellLocation[] = ctx.ok
+    ? ctx.context.memberships.map((m) => ({ id: m.locationId, name: m.name }))
+    : [];
+  const activeLocationId = ctx.ok ? ctx.context.locationId : null;
+
+  return (
+    <AppShell email={email} locations={locations} activeLocationId={activeLocationId}>
+      {children}
+    </AppShell>
+  );
 }

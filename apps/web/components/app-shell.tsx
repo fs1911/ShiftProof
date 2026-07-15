@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 
-import { signOut } from "@/app/app/actions";
+import { setActiveLocation, signOut } from "@/app/app/actions";
 
 const NAV_ITEMS = [
   { href: "/app/dashboard", label: "Dashboard" },
@@ -13,15 +13,25 @@ const NAV_ITEMS = [
   { href: "/app/exceptions", label: "Exceptions" },
 ];
 
+export interface ShellLocation {
+  id: string;
+  name: string;
+}
+
 /**
- * Protected app shell: top bar + side navigation + content area.
- * Responsive — the nav collapses to a horizontal scroll row on small screens.
+ * Protected app shell: top bar (with location switcher) + side navigation +
+ * content area. Responsive — the nav collapses to a horizontal scroll row on
+ * small screens.
  */
 export function AppShell({
   email,
+  locations,
+  activeLocationId,
   children,
 }: {
   email: string | null;
+  locations: ShellLocation[];
+  activeLocationId: string | null;
   children: ReactNode;
 }) {
   const pathname = usePathname();
@@ -30,7 +40,7 @@ export function AppShell({
     <div className="flex min-h-full flex-col">
       {/* Top bar */}
       <header className="sticky top-0 z-10 border-b border-slate-200 bg-white">
-        <div className="flex h-14 items-center justify-between px-4 sm:px-6">
+        <div className="flex h-14 items-center justify-between gap-3 px-4 sm:px-6">
           <Link
             href="/app/dashboard"
             className="text-base font-semibold tracking-tight text-slate-900"
@@ -38,7 +48,18 @@ export function AppShell({
             Shift<span className="text-brand-600">Proof</span>
           </Link>
           <div className="flex items-center gap-3">
-            <span className="hidden text-sm text-slate-500 sm:inline">
+            {locations.length > 1 ? (
+              <LocationSwitcher
+                locations={locations}
+                activeLocationId={activeLocationId}
+                pathname={pathname}
+              />
+            ) : locations.length === 1 ? (
+              <span className="hidden text-sm text-slate-500 sm:inline">
+                {locations[0].name}
+              </span>
+            ) : null}
+            <span className="hidden text-sm text-slate-500 md:inline">
               {email ?? "Signed in"}
             </span>
             <form action={signOut}>
@@ -82,5 +103,37 @@ export function AppShell({
         <main className="min-w-0 flex-1">{children}</main>
       </div>
     </div>
+  );
+}
+
+function LocationSwitcher({
+  locations,
+  activeLocationId,
+  pathname,
+}: {
+  locations: ShellLocation[];
+  activeLocationId: string | null;
+  pathname: string;
+}) {
+  return (
+    <form action={setActiveLocation}>
+      <input type="hidden" name="redirect_to" value={pathname} />
+      <label className="sr-only" htmlFor="location-switcher">
+        Active location
+      </label>
+      <select
+        id="location-switcher"
+        name="location_id"
+        defaultValue={activeLocationId ?? undefined}
+        onChange={(e) => e.currentTarget.form?.requestSubmit()}
+        className="max-w-[10rem] rounded-md border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-700 outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500"
+      >
+        {locations.map((loc) => (
+          <option key={loc.id} value={loc.id}>
+            {loc.name}
+          </option>
+        ))}
+      </select>
+    </form>
   );
 }

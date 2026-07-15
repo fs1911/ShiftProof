@@ -9,12 +9,14 @@ import {
   ErrorBanner,
   Field,
   PageHeader,
+  NoLocationNotice,
   exceptionStatusTone,
   inputClass,
   primaryButtonClass,
   secondaryButtonClass,
   severityTone,
 } from "@/components/ui";
+import { getAppContext } from "@/lib/auth/context";
 import { getException } from "@/lib/data/exceptions";
 
 import { setExceptionStatus } from "../actions";
@@ -28,7 +30,16 @@ export default async function ExceptionDetailPage({
   params: { id: string };
   searchParams: { error?: string };
 }) {
-  const { exception, error } = await getException(params.id);
+  const ctx = await getAppContext();
+  if (!ctx.ok) {
+    return (
+      <div>
+        <PageHeader title="Exception" />
+        <NoLocationNotice />
+      </div>
+    );
+  }
+  const { exception, error } = await getException(params.id, ctx.context.locationId);
 
   if (error) {
     return (

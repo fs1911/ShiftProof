@@ -8,12 +8,14 @@ import {
   EmptyState,
   ErrorBanner,
   Field,
+  NoLocationNotice,
   PageHeader,
   exceptionStatusTone,
   inputClass,
   secondaryButtonClass,
   severityTone,
 } from "@/components/ui";
+import { getAppContext } from "@/lib/auth/context";
 import { getExceptions } from "@/lib/data/exceptions";
 
 import { raiseException } from "./actions";
@@ -25,7 +27,16 @@ export default async function ExceptionsPage({
 }: {
   searchParams: { error?: string };
 }) {
-  const exceptions = await getExceptions(false, 100);
+  const ctx = await getAppContext();
+  if (!ctx.ok) {
+    return (
+      <div>
+        <PageHeader title="Exceptions" />
+        <NoLocationNotice />
+      </div>
+    );
+  }
+  const exceptions = await getExceptions(ctx.context.locationId, false, 100);
 
   return (
     <div className="space-y-6">

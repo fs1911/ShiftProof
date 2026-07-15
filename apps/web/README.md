@@ -43,7 +43,7 @@ apps/web/
     app-shell.tsx           # Top bar + side nav + content area
     ui.tsx                  # Small UI primitives + shared tones/classes
   lib/
-    auth/context.ts         # Current user + active location + role, canManage()
+    auth/context.ts         # Current user + memberships + active location + role, canManage()
     env.ts                  # Lazy, fail-clearly env access
     supabase/
       client.ts             # Browser client (anon key, RLS)
@@ -65,6 +65,8 @@ apps/web/
 - **All members** start a run of a routine, step through its tasks capturing status, value, and comment, then complete (blocked until required tasks are done) or abandon it (`/app/runs/[id]`).
 - **All members** raise exceptions (run- or task-level); the **raiser or a manager** triages them to resolution (`/app/exceptions`).
 - Every write goes through the RLS-governed server client (anon key). The service-role client is never used for these flows. App-level role checks mirror the database policies for clear UX.
+
+**Multiple locations:** a user can belong to several locations, each with its own role. When they belong to more than one, the app shell shows a **location switcher**; the choice is stored in the HTTP-only `sp_active_location` cookie (validated server-side against their memberships, default = earliest-joined). Every screen and Server Action reads/writes only the **active location**, so data from the user's other locations is never mixed in. RLS is still the security boundary; the active-location filter is the in-app scoping among the user's own locations.
 
 ## Scripts (run from repo root or this workspace)
 
