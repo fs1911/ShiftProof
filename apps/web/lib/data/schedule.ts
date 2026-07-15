@@ -1,5 +1,7 @@
 import "server-only";
 
+import type { SupabaseClient } from "@supabase/supabase-js";
+
 import { createClient } from "@/lib/supabase/server";
 import type { RoutineFrequency } from "@/types/db";
 
@@ -41,13 +43,18 @@ interface ScheduleRow {
   schedule_monthday: number | null;
 }
 
-/** Resolve due status for the active location on `dateParam` (or local today). */
+/**
+ * Resolve due status for a location on `dateParam` (or local today). Pass a
+ * Supabase client to reuse a specific one — the RLS server client for user
+ * requests (default), or the admin client for the cron job (no user session).
+ */
 export async function getDueRoutines(
   locationId: string,
   dateParam?: string,
+  client?: SupabaseClient,
 ): Promise<DueResult> {
   try {
-    const supabase = createClient();
+    const supabase = client ?? createClient();
 
     const { data: location } = await supabase
       .from("locations")

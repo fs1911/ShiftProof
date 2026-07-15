@@ -4,7 +4,8 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { canManage, getAppContext } from "@/lib/auth/context";
-import { getDueRoutines } from "@/lib/data/schedule";
+import { generateAndSendDigest } from "@/lib/data/digest";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 
 const PATH = "/app/notifications";
@@ -39,10 +40,10 @@ export async function markAllRead(): Promise<void> {
 }
 
 /**
- * Generate today's due/overdue digest for the active location. The figures are
- * computed here (lib/data/schedule.ts — the single source of truth), then the
- * create_digest_notifications RPC fans a summary out to every owner/manager,
- * idempotently per day. Manager/owner only.
+ * Generate today's due/overdue digest for the active location — creating in-app
+ * notifications and (when email is configured) emailing opted-in owners/managers.
+ * Manager/owner only: gated here, then run with the admin client because it must
+ * write for other users and read their emails. Idempotent per day.
  */
 export async function generateDigest(): Promise<void> {
   const ctx = await getAppContext();
@@ -53,32 +54,38 @@ export async function generateDigest(): Promise<void> {
     redirect(`${PATH}?error=${encodeURIComponent("Only managers and owners can generate the digest.")}`);
   }
 
-  const due = await getDueRoutines(ctx.context.locationId);
-  if (due.error) {
-    redirect(`${PATH}?error=${encodeURIComponent(due.error)}`);
+  let errorMsg: string | null = null;
+  try {
+    const admin = createAdminClient();
+    const outcome = await generateAndSendDigest(admin, ctx.context.locationId);
+    errorMsg = outcome.error;
+  } catch (err) {
+    errorMsg = err instanceof Error ? err.message : "Could not generate the digest.";
   }
 
-  const overdue = due.routines.filter((r) => r.status === "overdue").length;
-  const dueCount = due.routines.filter((r) => r.status === "due").length;
-  const done = due.routines.filter((r) => r.status === "done").length;
+  if (errorMsg) {
+    redirect(`${PATH}?error=${encodeURIComponent(errorMsg)}`);
+  }
+  revalidatePath(PATH);
+  redirect(PATH);
+}
 
-  const title = `Due digest — ${due.date}`;
-  const body = `${dueCount} due, ${overdue} overdue, ${done} done at ${ctx.context.locationName}.`;
+/** Toggle the current user's digest-email opt-in (RLS scopes to self). */
+export async function setEmailOptIn(formData: FormData): Promise<void> {
+  const optIn = formData.get("notify_email") != null;
 
   const supabase = createClient();
-  const { error } = await supabase.rpc("create_digest_notifications", {
-    p_location_id: ctx.context.locationId,
-    p_date: due.date,
-    p_title: title,
-    p_body: body,
-  });
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect("/login");
 
-  if (error) {
-    const message = error.message.includes("NOT_ALLOWED")
-      ? "You don't have permission to do that."
-      : error.message;
-    redirect(`${PATH}?error=${encodeURIComponent(message)}`);
-  }
+  const { error } = await supabase
+    .from("users")
+    .update({ notify_email: optIn })
+    .eq("id", user.id);
+
+  if (error) redirect(`${PATH}?error=${encodeURIComponent(error.message)}`);
   revalidatePath(PATH);
   redirect(PATH);
 }

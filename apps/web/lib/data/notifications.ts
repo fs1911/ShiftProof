@@ -10,11 +10,12 @@ export interface AppNotification {
   body: string | null;
   related_routine_id: string | null;
   is_read: boolean;
+  emailed_at: string | null;
   created_at: string;
 }
 
 const COLUMNS =
-  "id, location_id, type, title, body, related_routine_id, is_read, created_at";
+  "id, location_id, type, title, body, related_routine_id, is_read, emailed_at, created_at";
 
 /** The current user's notifications (RLS returns only their own rows). */
 export async function getNotifications(
@@ -35,6 +36,25 @@ export async function getNotifications(
       rows: [],
       error: err instanceof Error ? err.message : "Unknown error loading notifications.",
     };
+  }
+}
+
+/** The current user's digest-email opt-in (defaults to true if unavailable). */
+export async function getEmailOptIn(): Promise<boolean> {
+  try {
+    const supabase = createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return true;
+    const { data } = await supabase
+      .from("users")
+      .select("notify_email")
+      .eq("id", user.id)
+      .maybeSingle();
+    return (data as { notify_email?: boolean } | null)?.notify_email ?? true;
+  } catch {
+    return true;
   }
 }
 
