@@ -39,6 +39,10 @@ apps/web/
         page.tsx            # Exceptions list + raise form
         [id]/page.tsx       # Exception triage (open → in_progress → resolved)
         actions.ts          # raiseException, setExceptionStatus
+      reports/
+        page.tsx            # /app/reports — manager/owner summaries + date filter
+        export/runs/route.ts        # CSV export of runs
+        export/exceptions/route.ts  # CSV export of exceptions
   components/
     app-shell.tsx           # Top bar + side nav + content area
     ui.tsx                  # Small UI primitives + shared tones/classes
@@ -55,6 +59,7 @@ apps/web/
       runs.ts               # getRecentRuns(), getRunDetail()
       exceptions.ts         # getExceptions(), getException()
       photos.ts             # getRunPhotos() + server-signed URLs (shift-photos)
+      reports.ts            # getRunSummary/getExceptionSummary, CSV export helpers
   types/db.ts               # Hand-written entity types (mirror schema.sql)
   middleware.ts             # Wires updateSession() across requests
 ```
@@ -65,6 +70,8 @@ apps/web/
 - **All members** start a run of a routine, step through its tasks capturing status, value, and comment, then complete (blocked until required tasks are done) or abandon it (`/app/runs/[id]`).
 - **All members** raise exceptions (run- or task-level); the **raiser or a manager** triages them to resolution (`/app/exceptions`).
 - Every write goes through the RLS-governed server client (anon key). The service-role client is never used for these flows. App-level role checks mirror the database policies for clear UX.
+
+- **Managers/owners** additionally get **Reports** (`/app/reports`): read-only, active-location-scoped summaries for a date range (run counts + completion rate, per-routine counts, exceptions by status/severity) and CSV export of runs and exceptions. Staff don't see the Reports nav item, and the export routes re-check the role server-side.
 
 **Multiple locations:** a user can belong to several locations, each with its own role. When they belong to more than one, the app shell shows a **location switcher**; the choice is stored in the HTTP-only `sp_active_location` cookie (validated server-side against their memberships, default = earliest-joined). Every screen and Server Action reads/writes only the **active location**, so data from the user's other locations is never mixed in. RLS is still the security boundary; the active-location filter is the in-app scoping among the user's own locations.
 

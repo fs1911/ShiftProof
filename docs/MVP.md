@@ -15,10 +15,12 @@ The MVP proves one loop end-to-end: **a staff member completes a routine with pr
 - **Photos**: upload proof photos to Supabase Storage, linked to task runs.
 - **Exceptions**: raise an exception against a task run or run, with a status lifecycle (`open → in_progress → resolved`) and an optional follow-up note.
 - **Basic dashboard**: managers/owners see recent runs and open exceptions per location.
+- **Basic reporting & export**: managers/owners see per-location run/exception summaries for a date range and export runs and exceptions as CSV.
+- **Multiple locations**: users belonging to more than one location switch the active location; the app scopes to it.
 
 ## Out of Scope (for MVP)
 
-- Rich analytics, trends, and exportable reports (a simple list view only for now).
+- Rich analytics dashboards, charts, and trend lines (basic count summaries + CSV export are in scope; graphical analytics are not).
 - Scheduling / rostering / who-works-when.
 - Automated reminders, push notifications, SMS, or email digests.
 - Offline mode and PWA installability.
