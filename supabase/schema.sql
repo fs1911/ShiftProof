@@ -254,3 +254,30 @@ create index exceptions_routine_run_id_idx on exceptions (routine_run_id);
 create index exceptions_task_run_id_idx    on exceptions (task_run_id);
 create index exceptions_status_idx         on exceptions (status);
 create index exceptions_assigned_to_idx    on exceptions (assigned_to);
+
+-- ---------------------------------------------------------------------------
+-- notifications  (in-app inbox; e.g. daily due/overdue digest)
+--
+-- `dedupe_key` makes digest generation idempotent — one notification per
+-- (user, key), e.g. key 'due_digest:2026-07-15'. Rows are created only by the
+-- create_digest_notifications SECURITY DEFINER function (see policies.sql);
+-- there is no client INSERT policy.
+-- ---------------------------------------------------------------------------
+
+create table notifications (
+  id                 uuid primary key default gen_random_uuid(),
+  location_id        uuid not null references locations (id) on delete cascade,
+  user_id            uuid not null references users (id) on delete cascade,
+  type               text not null,
+  title              text not null,
+  body               text,
+  related_routine_id uuid references routines (id) on delete set null,
+  dedupe_key         text,
+  is_read            boolean not null default false,
+  created_at         timestamptz not null default now()
+);
+
+create index notifications_user_unread_idx on notifications (user_id, is_read);
+create index notifications_location_idx     on notifications (location_id);
+create unique index notifications_user_dedupe_idx
+  on notifications (user_id, dedupe_key) where dedupe_key is not null;
