@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 
 import { AppShell, type ShellLocation } from "@/components/app-shell";
-import { getAppContext } from "@/lib/auth/context";
+import { canManage, getAppContext } from "@/lib/auth/context";
 import { createClient } from "@/lib/supabase/server";
 
 /**
@@ -42,9 +42,15 @@ export default async function AppLayout({
     ? ctx.context.memberships.map((m) => ({ id: m.locationId, name: m.name }))
     : [];
   const activeLocationId = ctx.ok ? ctx.context.locationId : null;
+  const showReports = ctx.ok && canManage(ctx.context.role);
 
   return (
-    <AppShell email={email} locations={locations} activeLocationId={activeLocationId}>
+    <AppShell
+      email={email}
+      locations={locations}
+      activeLocationId={activeLocationId}
+      showReports={showReports}
+    >
       {children}
     </AppShell>
   );

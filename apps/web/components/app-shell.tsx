@@ -6,12 +6,14 @@ import type { ReactNode } from "react";
 
 import { setActiveLocation, signOut } from "@/app/app/actions";
 
-const NAV_ITEMS = [
+const BASE_NAV_ITEMS = [
   { href: "/app/dashboard", label: "Dashboard" },
   { href: "/app/routines", label: "Routines" },
   { href: "/app/runs", label: "Runs" },
   { href: "/app/exceptions", label: "Exceptions" },
 ];
+
+const REPORTS_NAV_ITEM = { href: "/app/reports", label: "Reports" };
 
 export interface ShellLocation {
   id: string;
@@ -27,14 +29,19 @@ export function AppShell({
   email,
   locations,
   activeLocationId,
+  showReports,
   children,
 }: {
   email: string | null;
   locations: ShellLocation[];
   activeLocationId: string | null;
+  showReports: boolean;
   children: ReactNode;
 }) {
   const pathname = usePathname();
+  const navItems = showReports
+    ? [...BASE_NAV_ITEMS, REPORTS_NAV_ITEM]
+    : BASE_NAV_ITEMS;
 
   return (
     <div className="flex min-h-full flex-col">
@@ -78,7 +85,7 @@ export function AppShell({
         {/* Side nav (compact horizontal on mobile) */}
         <nav className="md:w-48 md:shrink-0">
           <ul className="flex gap-1 overflow-x-auto md:flex-col md:gap-0.5">
-            {NAV_ITEMS.map((item) => {
+            {navItems.map((item) => {
               const active =
                 pathname === item.href || pathname.startsWith(`${item.href}/`);
               return (

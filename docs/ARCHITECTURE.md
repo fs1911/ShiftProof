@@ -87,6 +87,7 @@ The `routine → run → proof → exception → follow-up` loop is implemented 
 - **Execution (any member):** starting a run inserts a `routine_run` plus a `task_run` per task; staff capture status, value, and comment per task; completion is blocked until required tasks are done; runs can be abandoned.
 - **Exceptions:** any member raises run- or task-level exceptions; the raiser or a manager triages `open → in_progress → resolved` (resolution requires a note and stamps resolver + timestamp).
 - **Proof photos:** members upload photos per task while a run is in progress; binaries go to the private `shift-photos` Storage bucket under `<location_id>/<task_run_id>/<file>`, with a `photos` metadata row. Images render via short-lived server-signed URLs; photos are immutable (manager delete only); a `requires_photo` task can't be marked done without one. Storage RLS mirrors the table policies (member read/upload, manager delete) — never the service-role key.
+- **Reporting & export (manager/owner):** `/app/reports` shows read-only, active-location-scoped summaries for a date range (run counts by status + completion rate, per-routine run counts, exceptions by status/severity). Summaries are computed in `lib/data/reports.ts` from RLS-governed reads (JS aggregation, capped result sets — no DB RPCs or new deps). Two Route Handlers (`/app/reports/export/{runs,exceptions}`) stream CSV built server-side with a `Content-Disposition` attachment; both re-check role and scope to the active location.
 
 ## Deployment logic
 
