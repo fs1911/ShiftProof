@@ -15,6 +15,7 @@ import {
   primaryButtonClass,
   secondaryButtonClass,
 } from "@/components/ui";
+import { ScheduleFields } from "@/components/schedule-fields";
 import { canManage, getAppContext } from "@/lib/auth/context";
 import { getRoutineWithTasks } from "@/lib/data/routines";
 import type { Task, TaskType } from "@/types/db";
@@ -173,19 +174,11 @@ export default async function RoutineDetailPage({
                     className={inputClass}
                   />
                 </Field>
-                <Field label="Frequency" htmlFor="r-frequency">
-                  <select
-                    id="r-frequency"
-                    name="frequency"
-                    className={inputClass}
-                    defaultValue={routine.frequency}
-                  >
-                    <option value="daily">Daily</option>
-                    <option value="weekly">Weekly</option>
-                    <option value="monthly">Monthly</option>
-                    <option value="ad_hoc">Ad hoc</option>
-                  </select>
-                </Field>
+                <ScheduleFields
+                  frequency={routine.frequency}
+                  weekday={routine.schedule_weekday}
+                  monthday={routine.schedule_monthday}
+                />
                 <button type="submit" className={primaryButtonClass}>
                   Save changes
                 </button>

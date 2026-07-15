@@ -65,6 +65,7 @@ apps/web/
       photos.ts             # getRunPhotos() + server-signed URLs (shift-photos)
       reports.ts            # getRunSummary/getExceptionSummary, CSV export helpers
       members.ts            # getLocationMembers() (RPC), getOwnedLocations()
+      schedule.ts           # getDueRoutines() — due/overdue/done in location tz
   types/db.ts               # Hand-written entity types (mirror schema.sql)
   middleware.ts             # Wires updateSession() across requests
 ```
