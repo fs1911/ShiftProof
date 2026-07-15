@@ -76,9 +76,13 @@ locations ─┬─< user_locations >─ users
 - `location_id` → `locations.id`
 - `name`
 - `description` (optional)
-- `frequency` (enum/text: `daily` | `weekly` | `monthly` | `ad_hoc`) — descriptive for MVP, not a scheduler
+- `frequency` (enum: `daily` | `weekly` | `monthly` | `ad_hoc`)
+- `schedule_weekday` (smallint, nullable, 0=Sunday..6=Saturday) — weekly target day; null ⇒ Monday
+- `schedule_monthday` (smallint, nullable, 1..28) — monthly target day; null ⇒ 1st
 - `is_active`
 - `created_at`, `updated_at`
+
+**Scheduling / "due":** the frequency + schedule fields derive when a routine is *due* on a given day (computed in the app, in the location's timezone): `daily` ⇒ every day; `weekly` ⇒ on `schedule_weekday`; `monthly` ⇒ on `schedule_monthday`; `ad_hoc` ⇒ never. A routine is *done* for a day when a `completed` `routine_run` exists for it that day, and *overdue* when a scheduled day within a short look-back window was missed. There is no separate schedule table and no server-side scheduler yet.
 
 **Relationships:**
 - Belongs to one `location`.

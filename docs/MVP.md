@@ -17,6 +17,7 @@ The MVP proves one loop end-to-end: **a staff member completes a routine with pr
 - **Basic dashboard**: managers/owners see recent runs and open exceptions per location.
 - **Basic reporting & export**: managers/owners see per-location run/exception summaries for a date range and export runs and exceptions as CSV.
 - **Multiple locations**: users belonging to more than one location switch the active location; the app scopes to it.
+- **Routine due-dates**: routines can be scheduled (daily / weekly weekday / monthly day); a "due today" view surfaces due, overdue, and done routines. (This is routine scheduling — distinct from staff rostering, which stays out of scope.)
 
 ## Out of Scope (for MVP)
 

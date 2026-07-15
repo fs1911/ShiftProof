@@ -21,6 +21,10 @@ export interface Routine {
   name: string;
   description: string | null;
   frequency: RoutineFrequency;
+  /** Weekly target: 0=Sunday .. 6=Saturday (null => Monday). */
+  schedule_weekday: number | null;
+  /** Monthly target: 1..28 (null => 1st). */
+  schedule_monthday: number | null;
   is_active: boolean;
   created_at: string;
   updated_at: string;

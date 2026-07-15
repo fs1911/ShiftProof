@@ -9,7 +9,7 @@ import type {
 } from "@/types/db";
 
 const ROUTINE_COLUMNS =
-  "id, location_id, name, description, frequency, is_active, created_at, updated_at";
+  "id, location_id, name, description, frequency, schedule_weekday, schedule_monthday, is_active, created_at, updated_at";
 const TASK_COLUMNS =
   "id, routine_id, title, instructions, task_type, is_required, requires_photo, position, created_at, updated_at";
 

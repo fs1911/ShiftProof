@@ -104,6 +104,13 @@ create table routines (
   name        text not null,
   description text,
   frequency   routine_frequency not null default 'daily',
+  -- Optional schedule targets used to derive when a routine is "due":
+  --   daily   -> due every day (schedule_* ignored)
+  --   weekly  -> due on schedule_weekday (0=Sunday .. 6=Saturday; null => Monday)
+  --   monthly -> due on schedule_monthday (1..28; null => 1st)
+  --   ad_hoc  -> never "due"
+  schedule_weekday  smallint check (schedule_weekday is null or (schedule_weekday between 0 and 6)),
+  schedule_monthday smallint check (schedule_monthday is null or (schedule_monthday between 1 and 28)),
   is_active   boolean not null default true,
   created_at  timestamptz not null default now(),
   updated_at  timestamptz not null default now()

@@ -39,6 +39,7 @@ export async function createRoutine(formData: FormData): Promise<void> {
   const name = String(formData.get("name") ?? "").trim();
   const description = emptyToNull(String(formData.get("description") ?? ""));
   const frequency = asFrequency(String(formData.get("frequency") ?? "daily"));
+  const schedule = parseSchedule(formData, frequency);
 
   if (!name) {
     redirect(`/app/routines/new?error=${encodeURIComponent("Name is required.")}`);
@@ -52,6 +53,7 @@ export async function createRoutine(formData: FormData): Promise<void> {
       name,
       description,
       frequency,
+      ...schedule,
     })
     .select("id")
     .single();
@@ -71,6 +73,7 @@ export async function updateRoutine(formData: FormData): Promise<void> {
   const name = String(formData.get("name") ?? "").trim();
   const description = emptyToNull(String(formData.get("description") ?? ""));
   const frequency = asFrequency(String(formData.get("frequency") ?? "daily"));
+  const schedule = parseSchedule(formData, frequency);
 
   if (!id) redirect("/app/routines");
   if (!name) {
@@ -80,7 +83,7 @@ export async function updateRoutine(formData: FormData): Promise<void> {
   const supabase = createClient();
   const { error } = await supabase
     .from("routines")
-    .update({ name, description, frequency })
+    .update({ name, description, frequency, ...schedule })
     .eq("id", id);
 
   if (error) {
@@ -267,6 +270,34 @@ function asFrequency(value: string): RoutineFrequency {
   return (FREQUENCIES as string[]).includes(value)
     ? (value as RoutineFrequency)
     : "daily";
+}
+
+/**
+ * Schedule targets are only meaningful for the matching frequency; the others
+ * are cleared to null so stale values never affect due computation.
+ */
+function parseSchedule(
+  formData: FormData,
+  frequency: RoutineFrequency,
+): { schedule_weekday: number | null; schedule_monthday: number | null } {
+  const weekday = toInt(formData.get("schedule_weekday"));
+  const monthday = toInt(formData.get("schedule_monthday"));
+  return {
+    schedule_weekday:
+      frequency === "weekly" && weekday !== null && weekday >= 0 && weekday <= 6
+        ? weekday
+        : null,
+    schedule_monthday:
+      frequency === "monthly" && monthday !== null && monthday >= 1 && monthday <= 28
+        ? monthday
+        : null,
+  };
+}
+
+function toInt(value: FormDataEntryValue | null): number | null {
+  if (value == null) return null;
+  const n = Number.parseInt(String(value), 10);
+  return Number.isNaN(n) ? null : n;
 }
 
 function asTaskType(value: string): TaskType {

@@ -10,6 +10,7 @@ import {
   primaryButtonClass,
   secondaryButtonClass,
 } from "@/components/ui";
+import { ScheduleFields } from "@/components/schedule-fields";
 import { canManage, getAppContext } from "@/lib/auth/context";
 
 import { createRoutine } from "../actions";
@@ -66,14 +67,7 @@ export default async function NewRoutinePage({
               placeholder="What this routine covers and when to run it."
             />
           </Field>
-          <Field label="Frequency" htmlFor="frequency">
-            <select id="frequency" name="frequency" className={inputClass} defaultValue="daily">
-              <option value="daily">Daily</option>
-              <option value="weekly">Weekly</option>
-              <option value="monthly">Monthly</option>
-              <option value="ad_hoc">Ad hoc</option>
-            </select>
-          </Field>
+          <ScheduleFields />
           <div className="flex gap-3 pt-2">
             <button type="submit" className={primaryButtonClass}>
               Create routine
