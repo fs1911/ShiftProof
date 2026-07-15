@@ -6,20 +6,33 @@ import {
   CardHeader,
   DataNotice,
   EmptyState,
+  NoLocationNotice,
   PageHeader,
   StatCard,
   runStatusTone,
   severityTone,
 } from "@/components/ui";
+import { getAppContext } from "@/lib/auth/context";
 import { getExceptions } from "@/lib/data/exceptions";
 import { getRecentRuns } from "@/lib/data/runs";
 
 export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {
+  const ctx = await getAppContext();
+  if (!ctx.ok) {
+    return (
+      <div>
+        <PageHeader title="Dashboard" />
+        <NoLocationNotice />
+      </div>
+    );
+  }
+  const { locationId } = ctx.context;
+
   const [runs, exceptions] = await Promise.all([
-    getRecentRuns(10),
-    getExceptions(true, 10),
+    getRecentRuns(locationId, 10),
+    getExceptions(locationId, true, 10),
   ]);
 
   const dataError = runs.error ?? exceptions.error;

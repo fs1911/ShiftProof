@@ -8,6 +8,7 @@ import {
   DataNotice,
   ErrorBanner,
   Field,
+  NoLocationNotice,
   PageHeader,
   inputClass,
   primaryButtonClass,
@@ -37,7 +38,19 @@ export default async function RunDetailPage({
   params: { id: string };
   searchParams: { error?: string };
 }) {
-  const { run, error } = await getRunDetail(params.id);
+  const ctxResult = await getAppContext();
+  if (!ctxResult.ok) {
+    return (
+      <div>
+        <PageHeader title="Run" />
+        <NoLocationNotice />
+      </div>
+    );
+  }
+  const { locationId } = ctxResult.context;
+  const manager = canManage(ctxResult.context.role);
+
+  const { run, error } = await getRunDetail(params.id, locationId);
 
   if (error) {
     return (
@@ -52,10 +65,9 @@ export default async function RunDetailPage({
   const active = run.status === "in_progress";
   const runPath = `/app/runs/${run.id}`;
 
-  const ctxResult = await getAppContext();
-  const manager = ctxResult.ok && canManage(ctxResult.context.role);
   const { byTaskRun: photosByTaskRun } = await getRunPhotos(
     run.task_runs.map((tr) => tr.id),
+    locationId,
   );
 
   return (

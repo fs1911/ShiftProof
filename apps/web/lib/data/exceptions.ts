@@ -12,6 +12,7 @@ const EXCEPTION_COLUMNS =
  * dashboard). Triage/resolution actions come in a later block.
  */
 export async function getExceptions(
+  locationId: string,
   openOnly = false,
   limit = 50,
 ): Promise<QueryResult<ExceptionRecord>> {
@@ -20,6 +21,7 @@ export async function getExceptions(
     let query = supabase
       .from("exceptions")
       .select(EXCEPTION_COLUMNS)
+      .eq("location_id", locationId)
       .order("created_at", { ascending: false })
       .limit(limit);
 
@@ -38,9 +40,10 @@ export async function getExceptions(
   }
 }
 
-/** A single exception, or null if not found/visible. */
+/** A single exception in the active location, or null if not found/visible. */
 export async function getException(
   exceptionId: string,
+  locationId: string,
 ): Promise<{ exception: ExceptionRecord | null; error: string | null }> {
   try {
     const supabase = createClient();
@@ -48,6 +51,7 @@ export async function getException(
       .from("exceptions")
       .select(EXCEPTION_COLUMNS)
       .eq("id", exceptionId)
+      .eq("location_id", locationId)
       .maybeSingle();
 
     if (error) return { exception: null, error: error.message };

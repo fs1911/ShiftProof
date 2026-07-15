@@ -6,6 +6,7 @@ import {
   DataNotice,
   EmptyState,
   ErrorBanner,
+  NoLocationNotice,
   PageHeader,
   primaryButtonClass,
 } from "@/components/ui";
@@ -20,8 +21,16 @@ export default async function RoutinesPage({
   searchParams: { error?: string };
 }) {
   const ctxResult = await getAppContext();
-  const manager = ctxResult.ok && canManage(ctxResult.context.role);
-  const routines = await getRoutines();
+  if (!ctxResult.ok) {
+    return (
+      <div>
+        <PageHeader title="Routines" />
+        <NoLocationNotice />
+      </div>
+    );
+  }
+  const manager = canManage(ctxResult.context.role);
+  const routines = await getRoutines(ctxResult.context.locationId);
 
   return (
     <div>

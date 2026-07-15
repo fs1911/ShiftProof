@@ -32,6 +32,7 @@ type RawRunDetail = RoutineRun & {
  * the caller's location(s).
  */
 export async function getRecentRuns(
+  locationId: string,
   limit = 20,
 ): Promise<QueryResult<RoutineRunListItem>> {
   try {
@@ -41,6 +42,7 @@ export async function getRecentRuns(
       .select(
         "id, routine_id, location_id, started_by, status, started_at, completed_at, notes, created_at, updated_at, routine:routines(name)",
       )
+      .eq("location_id", locationId)
       .order("started_at", { ascending: false })
       .limit(limit);
 
@@ -62,9 +64,14 @@ export async function getRecentRuns(
   }
 }
 
-/** A single run with its routine name and its task_runs (each joined to its task). */
+/**
+ * A single run (in the active location) with its routine name and its task_runs
+ * (each joined to its task). The location_id filter blocks opening a run that
+ * belongs to another of the user's locations while acting here.
+ */
 export async function getRunDetail(
   runId: string,
+  locationId: string,
 ): Promise<{ run: RunDetail | null; error: string | null }> {
   try {
     const supabase = createClient();
@@ -79,6 +86,7 @@ export async function getRunDetail(
          )`,
       )
       .eq("id", runId)
+      .eq("location_id", locationId)
       .maybeSingle();
 
     if (error) return { run: null, error: error.message };

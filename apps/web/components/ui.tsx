@@ -128,6 +128,19 @@ export function DataNotice({ error }: { error: string | null }) {
   );
 }
 
+/**
+ * Shown on app screens when the signed-in user has no location membership yet.
+ * Provisioning a user + location + membership is a server-side/onboarding step.
+ */
+export function NoLocationNotice() {
+  return (
+    <EmptyState
+      title="No location assigned"
+      description="Your account isn't linked to a location yet. An owner or administrator needs to add you to one before you can use ShiftProof."
+    />
+  );
+}
+
 /** Shows a form action error passed back via the `?error=` query param. */
 export function ErrorBanner({ message }: { message?: string }) {
   if (!message) return null;

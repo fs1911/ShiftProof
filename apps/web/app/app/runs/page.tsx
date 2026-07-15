@@ -6,9 +6,11 @@ import {
   DataNotice,
   EmptyState,
   ErrorBanner,
+  NoLocationNotice,
   PageHeader,
   runStatusTone,
 } from "@/components/ui";
+import { getAppContext } from "@/lib/auth/context";
 import { getRecentRuns } from "@/lib/data/runs";
 
 export const dynamic = "force-dynamic";
@@ -18,7 +20,16 @@ export default async function RunsPage({
 }: {
   searchParams: { error?: string };
 }) {
-  const runs = await getRecentRuns(50);
+  const ctx = await getAppContext();
+  if (!ctx.ok) {
+    return (
+      <div>
+        <PageHeader title="Runs" />
+        <NoLocationNotice />
+      </div>
+    );
+  }
+  const runs = await getRecentRuns(ctx.context.locationId, 50);
 
   return (
     <div>
