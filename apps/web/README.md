@@ -1,6 +1,6 @@
 # ShiftProof — Web App (`apps/web`)
 
-This is the home of the ShiftProof web application: a **Next.js** (App Router, TypeScript, Tailwind CSS) app. The **core routine loop is implemented** on top of the initial scaffold: managers author routines and ordered tasks; staff start runs, step through tasks capturing values/comments, and complete or abandon them; anyone raises exceptions and managers triage them to resolution. Photo capture is the next block (see Deferred).
+This is the home of the ShiftProof web application: a **Next.js** (App Router, TypeScript, Tailwind CSS) app. The **core routine loop is implemented** on top of the initial scaffold: managers author routines and ordered tasks; staff start runs, step through tasks capturing values/comments and **proof photos** (uploaded to the private `shift-photos` Supabase Storage bucket, shown via signed URLs), and complete or abandon them; anyone raises exceptions and managers triage them to resolution. A `requires_photo` task can't be marked done without a photo.
 
 The app is **phone-first** — the primary user is a staff member completing a routine on the floor. It talks directly to Supabase (auth, database under RLS, and storage), and is hosted on Railway.
 
@@ -34,7 +34,7 @@ apps/web/
       runs/
         page.tsx            # Routine runs list
         [id]/page.tsx       # Run detail: capture, complete/abandon, raise exception
-        actions.ts          # startRun, saveTaskRun, completeRun, abandonRun
+        actions.ts          # startRun, saveTaskRun, completeRun, abandonRun, uploadPhoto, deletePhoto
       exceptions/
         page.tsx            # Exceptions list + raise form
         [id]/page.tsx       # Exception triage (open → in_progress → resolved)
@@ -54,6 +54,7 @@ apps/web/
       routines.ts           # getRoutines(), getRoutineWithTasks()
       runs.ts               # getRecentRuns(), getRunDetail()
       exceptions.ts         # getExceptions(), getException()
+      photos.ts             # getRunPhotos() + server-signed URLs (shift-photos)
   types/db.ts               # Hand-written entity types (mirror schema.sql)
   middleware.ts             # Wires updateSession() across requests
 ```

@@ -25,10 +25,18 @@ Apply them in order: `schema.sql` first, then `policies.sql`.
 
 ## Storage usage for photos
 
-- Proof photos are stored in a Supabase **Storage bucket** (suggested name: `shift-photos`), **not** in the database.
+- Proof photos are stored in the private Supabase **Storage bucket** `shift-photos`, **not** in the database.
 - The `photos` table holds the reference (`storage_path`), the owning `location_id` and `task_run_id`, and who uploaded it.
-- The bucket should be **private**; the app serves images via signed URLs or authenticated access.
-- Storage access must be scoped consistently with table RLS (by location). Storage policies are **not yet defined here** — add them alongside the upload implementation, mirroring the location-based access model. (Marked as a gap for the next step.)
+- **Object path convention:** `<location_id>/<task_run_id>/<filename>`. The first segment is the owning location, which the Storage policies use for scoping.
+- **Storage RLS** lives in `policies.sql` (Storage section) and mirrors the table RLS: location members may read and upload; managers may delete. The app serves images via short-lived server-generated signed URLs; the bucket is never public.
+- Photos are **immutable** (add + manager-delete only). Uploads and deletes go through the RLS-governed clients — never the service-role key.
+
+### One-time Storage setup in Supabase
+
+`policies.sql` includes an idempotent `insert into storage.buckets (...)` that creates the private `shift-photos` bucket, plus the three Storage policies. If your role can't create buckets from the SQL editor, instead:
+
+1. In the dashboard: **Storage → New bucket** → name `shift-photos`, **Public: off**.
+2. Then run the Storage policy statements from `policies.sql` (the `storage.objects` policies) in the SQL editor.
 
 ## Migration expectations (later)
 

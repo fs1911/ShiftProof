@@ -165,6 +165,10 @@ locations ─┬─< user_locations >─ users
 - `uploaded_by` → `users.id`
 - `created_at`
 
+**Storage:** binaries live in the private Supabase Storage bucket **`shift-photos`**, with object paths following the convention `<location_id>/<task_run_id>/<filename>`. The first path segment is the owning location, so Storage RLS (in `supabase/policies.sql`) scopes read/upload to location members and delete to managers — mirroring the `photos` table policies. Images are displayed via short-lived server-generated signed URLs.
+
+**Lifecycle:** photos are **immutable** — the app only adds and (manager) deletes them; there is no edit. A `photo`-type or `requires_photo` task cannot be marked *completed* in a run until at least one photo is attached.
+
 **Relationships:**
 - Belongs to one `task_run` and one `location`.
 - Uploaded by one `user`.

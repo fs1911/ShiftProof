@@ -85,6 +85,21 @@ export interface RoutineRunListItem extends RoutineRun {
   routine_name: string | null;
 }
 
+export interface Photo {
+  id: string;
+  task_run_id: string;
+  location_id: string;
+  storage_path: string;
+  caption: string | null;
+  uploaded_by: string;
+  created_at: string;
+}
+
+/** A photo plus a short-lived signed URL for display (generated server-side). */
+export interface PhotoWithUrl extends Photo {
+  signed_url: string | null;
+}
+
 export interface ExceptionRecord {
   id: string;
   location_id: string;
