@@ -106,8 +106,9 @@ create policy users_update_self
 -- ---------------------------------------------------------------------------
 -- locations
 -- Members can read their locations. Only owners can update.
--- PROVISIONAL: location creation and deletion are handled server-side
--- (service role) during onboarding; no insert/delete policies granted here.
+-- Creation is done via the create_location() SECURITY DEFINER function (see the
+-- Onboarding section at the end of this file), which also makes the caller the
+-- owner — so no raw INSERT policy is granted here. Deletion stays out of scope.
 -- ---------------------------------------------------------------------------
 
 create policy locations_select_member
@@ -376,3 +377,211 @@ create policy shift_photos_delete_manager
     bucket_id = 'shift-photos'
     and has_location_role(((storage.foldername(name))[1])::uuid, 'manager')
   );
+
+-- ===========================================================================
+-- Onboarding: location creation + membership management (SECURITY DEFINER)
+--
+-- These functions are invoked from the RLS-governed client via
+-- supabase.rpc(...), NOT with the service-role key. Each enforces auth.uid()
+-- and role rules internally.
+--
+-- Why functions instead of a plain locations INSERT policy: creating the FIRST
+-- owner membership for a brand-new location cannot satisfy the "already an
+-- owner" check in user_locations_manage_owner, so that bootstrap must be done
+-- in one privileged, self-contained step. Managing members (add/role/remove)
+-- lives here too, so the finer rules (owners grant any role; managers manage
+-- staff; the last owner is protected; look users up by email past
+-- users_select_self) are enforced consistently in one place.
+--
+-- This section is idempotent (create or replace / grant) and safe to re-run on
+-- its own without re-running the rest of the file.
+--
+-- Error codes raised (the app maps these to friendly messages):
+--   NOT_AUTHENTICATED, NAME_REQUIRED, NOT_ALLOWED, USER_NOT_FOUND,
+--   ALREADY_MEMBER, NOT_A_MEMBER, LAST_OWNER
+-- ===========================================================================
+
+-- Create a location and make the caller its owner. Self-provisions the caller's
+-- profile row from auth.users when missing so a brand-new user can bootstrap.
+create or replace function create_location(p_name text, p_timezone text default 'UTC')
+returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_uid uuid := auth.uid();
+  v_location_id uuid;
+begin
+  if v_uid is null then
+    raise exception 'NOT_AUTHENTICATED';
+  end if;
+  if coalesce(btrim(p_name), '') = '' then
+    raise exception 'NAME_REQUIRED';
+  end if;
+
+  insert into users (id, email)
+  select v_uid, au.email from auth.users au where au.id = v_uid
+  on conflict (id) do nothing;
+
+  insert into locations (name, timezone)
+  values (btrim(p_name), coalesce(nullif(btrim(p_timezone), ''), 'UTC'))
+  returning id into v_location_id;
+
+  insert into user_locations (user_id, location_id, role)
+  values (v_uid, v_location_id, 'owner');
+
+  return v_location_id;
+end;
+$$;
+
+-- List the members of a location (manager+ only). Returns emails, which the
+-- users_select_self policy would otherwise hide from co-members.
+create or replace function list_location_members(p_location_id uuid)
+returns table (user_id uuid, email text, full_name text, role user_role)
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if not has_location_role(p_location_id, 'manager') then
+    raise exception 'NOT_ALLOWED';
+  end if;
+  return query
+    select ul.user_id, u.email, u.full_name, ul.role
+    from user_locations ul
+    join users u on u.id = ul.user_id
+    where ul.location_id = p_location_id
+    order by
+      case ul.role when 'owner' then 0 when 'manager' then 1 else 2 end,
+      u.email;
+end;
+$$;
+
+-- Add an existing ShiftProof user to a location by email. Owners may grant any
+-- role; managers may add staff only. Never creates auth users.
+create or replace function add_member_by_email(
+  p_location_id uuid,
+  p_email text,
+  p_role user_role
+)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_target uuid;
+begin
+  if p_role in ('owner', 'manager') then
+    if not has_location_role(p_location_id, 'owner') then
+      raise exception 'NOT_ALLOWED';
+    end if;
+  else
+    if not has_location_role(p_location_id, 'manager') then
+      raise exception 'NOT_ALLOWED';
+    end if;
+  end if;
+
+  select id into v_target from users where lower(email) = lower(btrim(p_email));
+  if v_target is null then
+    raise exception 'USER_NOT_FOUND';
+  end if;
+
+  if exists (
+    select 1 from user_locations
+    where location_id = p_location_id and user_id = v_target
+  ) then
+    raise exception 'ALREADY_MEMBER';
+  end if;
+
+  insert into user_locations (user_id, location_id, role)
+  values (v_target, p_location_id, p_role);
+end;
+$$;
+
+-- Change a member's role. Owner-only (granting owner/manager is sensitive).
+-- The last remaining owner cannot be demoted.
+create or replace function set_member_role(
+  p_location_id uuid,
+  p_user_id uuid,
+  p_role user_role
+)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_current user_role;
+  v_owner_count int;
+begin
+  if not has_location_role(p_location_id, 'owner') then
+    raise exception 'NOT_ALLOWED';
+  end if;
+
+  select role into v_current from user_locations
+  where location_id = p_location_id and user_id = p_user_id;
+  if v_current is null then
+    raise exception 'NOT_A_MEMBER';
+  end if;
+
+  if v_current = 'owner' and p_role <> 'owner' then
+    select count(*) into v_owner_count from user_locations
+    where location_id = p_location_id and role = 'owner';
+    if v_owner_count <= 1 then
+      raise exception 'LAST_OWNER';
+    end if;
+  end if;
+
+  update user_locations set role = p_role
+  where location_id = p_location_id and user_id = p_user_id;
+end;
+$$;
+
+-- Remove a member. Owners may remove anyone (but not the last owner); managers
+-- may remove staff only.
+create or replace function remove_member(p_location_id uuid, p_user_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_current user_role;
+  v_owner_count int;
+begin
+  select role into v_current from user_locations
+  where location_id = p_location_id and user_id = p_user_id;
+  if v_current is null then
+    raise exception 'NOT_A_MEMBER';
+  end if;
+
+  if v_current in ('owner', 'manager') then
+    if not has_location_role(p_location_id, 'owner') then
+      raise exception 'NOT_ALLOWED';
+    end if;
+  else
+    if not has_location_role(p_location_id, 'manager') then
+      raise exception 'NOT_ALLOWED';
+    end if;
+  end if;
+
+  if v_current = 'owner' then
+    select count(*) into v_owner_count from user_locations
+    where location_id = p_location_id and role = 'owner';
+    if v_owner_count <= 1 then
+      raise exception 'LAST_OWNER';
+    end if;
+  end if;
+
+  delete from user_locations
+  where location_id = p_location_id and user_id = p_user_id;
+end;
+$$;
+
+grant execute on function create_location(text, text) to authenticated;
+grant execute on function list_location_members(uuid) to authenticated;
+grant execute on function add_member_by_email(uuid, text, user_role) to authenticated;
+grant execute on function set_member_role(uuid, uuid, user_role) to authenticated;
+grant execute on function remove_member(uuid, uuid) to authenticated;

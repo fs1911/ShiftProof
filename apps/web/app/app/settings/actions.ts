@@ -1,0 +1,177 @@
+"use server";
+
+import { cookies } from "next/headers";
+import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
+
+import { ACTIVE_LOCATION_COOKIE, getAppContext } from "@/lib/auth/context";
+import { createClient } from "@/lib/supabase/server";
+import type { UserRole } from "@/types/db";
+
+const ROLES: UserRole[] = ["owner", "manager", "staff"];
+const LOCATIONS_PATH = "/app/settings/locations";
+const MEMBERS_PATH = "/app/settings/members";
+
+/**
+ * Onboarding writes. Location creation and membership changes go through
+ * SECURITY DEFINER RPCs (create_location, add_member_by_email, set_member_role,
+ * remove_member) invoked with the RLS-governed client — never the service-role
+ * key. Those functions enforce the role rules; these actions add clear UX and
+ * map error codes to friendly messages.
+ */
+
+/** Create a location; the caller becomes its owner and it becomes active. */
+export async function createLocation(formData: FormData): Promise<void> {
+  const name = String(formData.get("name") ?? "").trim();
+  const timezone = String(formData.get("timezone") ?? "").trim() || "UTC";
+
+  if (!name) {
+    redirect(`${LOCATIONS_PATH}?error=${encodeURIComponent("Location name is required.")}`);
+  }
+
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect("/login");
+
+  const { data, error } = await supabase.rpc("create_location", {
+    p_name: name,
+    p_timezone: timezone,
+  });
+
+  if (error) {
+    redirect(`${LOCATIONS_PATH}?error=${encodeURIComponent(mapError(error.message))}`);
+  }
+
+  // Make the new location active so the owner lands in its context.
+  if (typeof data === "string") {
+    cookies().set(ACTIVE_LOCATION_COOKIE, data, {
+      httpOnly: true,
+      sameSite: "lax",
+      path: "/",
+      maxAge: 60 * 60 * 24 * 365,
+    });
+  }
+  revalidatePath(LOCATIONS_PATH);
+  redirect(MEMBERS_PATH);
+}
+
+/** Rename / retime / activate a location (owner-only, enforced by RLS). */
+export async function updateLocation(formData: FormData): Promise<void> {
+  const id = String(formData.get("id") ?? "");
+  const name = String(formData.get("name") ?? "").trim();
+  const timezone = String(formData.get("timezone") ?? "").trim() || "UTC";
+  // An unchecked checkbox is absent from the form data → treat as inactive.
+  const isActive = formData.get("is_active") != null;
+
+  if (!id) redirect(LOCATIONS_PATH);
+  if (!name) {
+    redirect(`${LOCATIONS_PATH}?error=${encodeURIComponent("Location name is required.")}`);
+  }
+
+  const supabase = createClient();
+  const { error } = await supabase
+    .from("locations")
+    .update({ name, timezone, is_active: isActive })
+    .eq("id", id);
+
+  if (error) {
+    redirect(`${LOCATIONS_PATH}?error=${encodeURIComponent(mapError(error.message))}`);
+  }
+  revalidatePath(LOCATIONS_PATH);
+  redirect(LOCATIONS_PATH);
+}
+
+/** Add an existing user to the active location by email with a role. */
+export async function addMember(formData: FormData): Promise<void> {
+  const ctx = await requireManagerContext();
+  const email = String(formData.get("email") ?? "").trim();
+  const role = asRole(String(formData.get("role") ?? "staff"));
+
+  if (!email) {
+    redirect(`${MEMBERS_PATH}?error=${encodeURIComponent("Enter the person's email.")}`);
+  }
+
+  const supabase = createClient();
+  const { error } = await supabase.rpc("add_member_by_email", {
+    p_location_id: ctx.locationId,
+    p_email: email,
+    p_role: role,
+  });
+
+  if (error) {
+    redirect(`${MEMBERS_PATH}?error=${encodeURIComponent(mapError(error.message))}`);
+  }
+  revalidatePath(MEMBERS_PATH);
+  redirect(MEMBERS_PATH);
+}
+
+/** Change a member's role in the active location (owner-only, per the RPC). */
+export async function changeMemberRole(formData: FormData): Promise<void> {
+  const ctx = await requireManagerContext();
+  const userId = String(formData.get("user_id") ?? "");
+  const role = asRole(String(formData.get("role") ?? "staff"));
+  if (!userId) redirect(MEMBERS_PATH);
+
+  const supabase = createClient();
+  const { error } = await supabase.rpc("set_member_role", {
+    p_location_id: ctx.locationId,
+    p_user_id: userId,
+    p_role: role,
+  });
+
+  if (error) {
+    redirect(`${MEMBERS_PATH}?error=${encodeURIComponent(mapError(error.message))}`);
+  }
+  revalidatePath(MEMBERS_PATH);
+  redirect(MEMBERS_PATH);
+}
+
+/** Remove a member from the active location. */
+export async function removeMember(formData: FormData): Promise<void> {
+  const ctx = await requireManagerContext();
+  const userId = String(formData.get("user_id") ?? "");
+  if (!userId) redirect(MEMBERS_PATH);
+
+  const supabase = createClient();
+  const { error } = await supabase.rpc("remove_member", {
+    p_location_id: ctx.locationId,
+    p_user_id: userId,
+  });
+
+  if (error) {
+    redirect(`${MEMBERS_PATH}?error=${encodeURIComponent(mapError(error.message))}`);
+  }
+  revalidatePath(MEMBERS_PATH);
+  redirect(MEMBERS_PATH);
+}
+
+async function requireManagerContext() {
+  const result = await getAppContext();
+  if (!result.ok) {
+    redirect(`${MEMBERS_PATH}?error=${encodeURIComponent("Your account is not assigned to a location yet.")}`);
+  }
+  if (result.context.role === "staff") {
+    redirect(`${MEMBERS_PATH}?error=${encodeURIComponent("Only managers and owners can manage members.")}`);
+  }
+  return result.context;
+}
+
+function asRole(value: string): UserRole {
+  return (ROLES as string[]).includes(value) ? (value as UserRole) : "staff";
+}
+
+/** Map RPC error codes to friendly, actionable messages. */
+function mapError(message: string): string {
+  if (message.includes("USER_NOT_FOUND")) {
+    return "No ShiftProof account with that email. Ask them to sign up first, then add them.";
+  }
+  if (message.includes("ALREADY_MEMBER")) return "That person is already a member of this location.";
+  if (message.includes("LAST_OWNER")) return "You can't remove or demote the last owner.";
+  if (message.includes("NOT_ALLOWED")) return "You don't have permission to do that.";
+  if (message.includes("NOT_A_MEMBER")) return "That person is no longer a member.";
+  if (message.includes("NAME_REQUIRED")) return "Location name is required.";
+  if (message.includes("NOT_AUTHENTICATED")) return "Please sign in again.";
+  return message;
+}

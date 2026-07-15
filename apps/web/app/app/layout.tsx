@@ -42,14 +42,14 @@ export default async function AppLayout({
     ? ctx.context.memberships.map((m) => ({ id: m.locationId, name: m.name }))
     : [];
   const activeLocationId = ctx.ok ? ctx.context.locationId : null;
-  const showReports = ctx.ok && canManage(ctx.context.role);
+  const userCanManage = ctx.ok && canManage(ctx.context.role);
 
   return (
     <AppShell
       email={email}
       locations={locations}
       activeLocationId={activeLocationId}
-      showReports={showReports}
+      canManage={userCanManage}
     >
       {children}
     </AppShell>
