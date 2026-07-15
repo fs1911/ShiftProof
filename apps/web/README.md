@@ -1,8 +1,93 @@
 # ShiftProof — Web App (`apps/web`)
 
-This is the home of the ShiftProof web application. It is currently a **placeholder**: the Next.js app is scaffolded here as the first implementation step (see the root `README.md` implementation path).
+This is the home of the ShiftProof web application: a **Next.js** (App Router, TypeScript, Tailwind CSS) app. The **core routine loop is implemented** on top of the initial scaffold: managers author routines and ordered tasks; staff start runs, step through tasks capturing values/comments, and complete or abandon them; anyone raises exceptions and managers triage them to resolution. Photo capture is the next block (see Deferred).
 
 The app is **phone-first** — the primary user is a staff member completing a routine on the floor. It talks directly to Supabase (auth, database under RLS, and storage), and is hosted on Railway.
+
+## Tech
+
+- **Next.js 14** (App Router) + **React 18** + **TypeScript**
+- **Tailwind CSS** for styling (minimal, credible B2B look; no UI library)
+- **@supabase/ssr** + **@supabase/supabase-js** for auth, session, and data access
+- No other runtime dependencies (kept deliberately lean per `docs/CLAUDE.md`)
+
+## Structure
+
+```
+apps/web/
+  app/
+    layout.tsx              # Root layout + global styles
+    page.tsx                # / — public landing page
+    login/
+      page.tsx              # /login — email + password sign-in form
+      actions.ts            # signIn server action
+    app/                    # Protected area (guarded by layout + middleware)
+      layout.tsx            # Auth check + AppShell (redirects to /login)
+      actions.ts            # signOut server action
+      page.tsx              # /app → redirects to /app/dashboard
+      dashboard/page.tsx    # KPI cards, today's runs, open exceptions
+      routines/
+        page.tsx            # Routines list (manager sees "New routine")
+        new/page.tsx        # Create-routine form (manager only)
+        [id]/page.tsx       # Routine detail: edit, tasks, start run
+        actions.ts          # create/update routine, task CRUD + reorder
+      runs/
+        page.tsx            # Routine runs list
+        [id]/page.tsx       # Run detail: capture, complete/abandon, raise exception
+        actions.ts          # startRun, saveTaskRun, completeRun, abandonRun
+      exceptions/
+        page.tsx            # Exceptions list + raise form
+        [id]/page.tsx       # Exception triage (open → in_progress → resolved)
+        actions.ts          # raiseException, setExceptionStatus
+  components/
+    app-shell.tsx           # Top bar + side nav + content area
+    ui.tsx                  # Small UI primitives + shared tones/classes
+  lib/
+    auth/context.ts         # Current user + active location + role, canManage()
+    env.ts                  # Lazy, fail-clearly env access
+    supabase/
+      client.ts             # Browser client (anon key, RLS)
+      server.ts             # Server client (cookies, RLS)
+      admin.ts              # Service-role client (server-only, bypasses RLS)
+      middleware.ts         # Session refresh + /app route guard
+    data/
+      routines.ts           # getRoutines(), getRoutineWithTasks()
+      runs.ts               # getRecentRuns(), getRunDetail()
+      exceptions.ts         # getExceptions(), getException()
+  types/db.ts               # Hand-written entity types (mirror schema.sql)
+  middleware.ts             # Wires updateSession() across requests
+```
+
+## Roles & the routine loop
+
+- **Managers/owners** author routines and their ordered tasks (`/app/routines`).
+- **All members** start a run of a routine, step through its tasks capturing status, value, and comment, then complete (blocked until required tasks are done) or abandon it (`/app/runs/[id]`).
+- **All members** raise exceptions (run- or task-level); the **raiser or a manager** triages them to resolution (`/app/exceptions`).
+- Every write goes through the RLS-governed server client (anon key). The service-role client is never used for these flows. App-level role checks mirror the database policies for clear UX.
+
+## Scripts (run from repo root or this workspace)
+
+- `npm run dev` — start the dev server
+- `npm run build` — production build
+- `npm run start` — run the production server (Railway start target)
+- `npm run lint` — ESLint (`next lint`)
+- `npm run typecheck` — `tsc --noEmit`
+
+## Environment
+
+Required variables (see root `.env.example`):
+
+- `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` — public, browser + server
+- `SUPABASE_SERVICE_ROLE_KEY` — server-only (used only by `lib/supabase/admin.ts`)
+- `APP_BASE_URL` — public base URL of the deployment
+
+Env is read lazily in `lib/env.ts`; a missing required value throws a clear error at request time rather than failing the build silently.
+
+## Auth & routing
+
+- `/` and `/login` are **public**; everything under `/app` is **protected**.
+- Protection is enforced twice: at the edge in `middleware.ts` (redirects unauthenticated users to `/login`) and again in `app/app/layout.tsx` at render time (fail-closed).
+- Sign-in uses Supabase **email + password**. This requires the Supabase project to have email/password auth enabled and a user provisioned — sign-up, password reset, and magic-link flows are intentionally deferred.
 
 ## Intended responsibilities
 

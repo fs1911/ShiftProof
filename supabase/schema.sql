@@ -137,7 +137,9 @@ create trigger tasks_set_updated_at
   for each row execute function set_updated_at();
 
 create index tasks_routine_id_idx on tasks (routine_id);
-create unique index tasks_routine_position_idx on tasks (routine_id, position);
+-- Ordering index (non-unique): positions are maintained by the app and may be
+-- transiently equal during a reorder swap. Screens order by (position, created_at).
+create index tasks_routine_position_idx on tasks (routine_id, position);
 
 -- ---------------------------------------------------------------------------
 -- routine_runs  (executions of a routine)

@@ -4,7 +4,6 @@
   "private": true,
   "description": "Lightweight web app for restaurants, cafés, and boutique hotels to complete recurring shift routines, capture proof, and track exceptions.",
   "license": "UNLICENSED",
-  "type": "module",
   "engines": {
     "node": ">=20"
   },
@@ -12,10 +11,12 @@
     "apps/*"
   ],
   "scripts": {
-    "dev": "echo \"[shiftproof] No app yet. Scaffold apps/web, then wire this script to it.\" && exit 0",
-    "build": "echo \"[shiftproof] No build configured yet. Wire this to apps/web build.\" && exit 0",
-    "lint": "echo \"[shiftproof] No linter configured yet.\" && exit 0",
+    "dev": "npm run dev --workspace apps/web",
+    "build": "npm run build --workspace apps/web",
+    "start": "npm run start --workspace apps/web",
+    "lint": "npm run lint --workspace apps/web",
+    "typecheck": "npm run typecheck --workspace apps/web",
     "format": "echo \"[shiftproof] No formatter configured yet.\" && exit 0",
-    "check": "echo \"[shiftproof] No checks configured yet (type-check + lint go here).\" && exit 0"
+    "check": "npm run typecheck --workspace apps/web && npm run lint --workspace apps/web"
   }
 }

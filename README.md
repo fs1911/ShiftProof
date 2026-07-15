@@ -42,8 +42,14 @@ shiftproof/
     DATA_MODEL.md        # Core entities and relationships
     CLAUDE.md            # Working instructions for Claude Code sessions
   apps/
-    web/
-      README.md          # Web app responsibilities (Next.js app lands here)
+    web/                 # Next.js web app (App Router, TypeScript, Tailwind)
+      app/               # Routes: /, /login, /app/{dashboard,routines,runs,exceptions}
+      components/        # App shell + small UI primitives
+      lib/               # env, Supabase clients (browser/server/admin), data helpers
+      types/             # Hand-written entity types (mirror the schema)
+      middleware.ts      # Session refresh + protected-route guard
+      README.md          # Web app structure, scripts, env, auth notes
+  railway.json           # Railway build/start configuration
   supabase/
     README.md            # Database ownership and conventions
     schema.sql           # Initial database schema
@@ -54,12 +60,26 @@ shiftproof/
 
 ## Intended implementation path
 
-The repository is intentionally shipped as a **bootstrap**: docs, structure, and database contracts are defined before application code, so implementation stays aligned.
+The repository began as a **bootstrap** (docs, structure, and database contracts) and now includes the **first web app scaffold** under `apps/web/` — auth foundation, a protected app shell, page skeletons for the core flows, and a thin Supabase-backed data layer.
 
-1. **Provision Supabase.** Create the project, run `supabase/schema.sql`, then `supabase/policies.sql`. Create a storage bucket for photos.
+1. **Provision Supabase.** Create the project, run `supabase/schema.sql`, then `supabase/policies.sql`. Create a storage bucket for photos. Enable email/password auth and provision at least one user.
 2. **Wire environment.** Copy `.env.example` into Railway (and any preview environments). Fill in Supabase and app values.
-3. **Scaffold the web app.** Build the Next.js app under `apps/web/` per `apps/web/README.md`, starting with auth entry and the dashboard.
-4. **Deploy on Railway.** Connect the GitHub repo to Railway so pushes to the main branch deploy automatically.
+3. ✅ **Web app + core loop.** The Next.js app under `apps/web/` is in place, including the core routine loop — authoring routines/tasks, running them with per-task capture, and raising/triaging exceptions (see `apps/web/README.md`). Photo/Storage capture is the next block.
+4. **Deploy on Railway.** Connect the GitHub repo to Railway. Railway builds with `npm run build` and serves with `npm run start` (see `railway.json`); set the environment variables from step 2.
 5. **Iterate on the MVP.** Follow `docs/MVP.md` — keep scope narrow, ship the core routine → run → proof → exception loop first.
+
+## Running the app
+
+From the repo root:
+
+```bash
+npm install          # installs the apps/web workspace
+npm run dev          # start the dev server (http://localhost:3000)
+npm run build        # production build
+npm run start        # production server (Railway start target)
+npm run check        # typecheck + lint
+```
+
+The app reads Supabase config from the environment at request time and fails with a clear error if a required value is missing (see `apps/web/lib/env.ts`).
 
 Read `docs/CLAUDE.md` before making any change. It defines how this repo is meant to evolve.
