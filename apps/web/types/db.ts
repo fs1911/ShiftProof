@@ -9,7 +9,9 @@
 
 export type UserRole = "owner" | "manager" | "staff";
 export type RoutineFrequency = "daily" | "weekly" | "monthly" | "ad_hoc";
+export type TaskType = "checkbox" | "value" | "photo" | "comment";
 export type RoutineRunStatus = "in_progress" | "completed" | "abandoned";
+export type TaskRunStatus = "pending" | "completed" | "skipped" | "failed";
 export type ExceptionSeverity = "low" | "medium" | "high";
 export type ExceptionStatus = "open" | "in_progress" | "resolved";
 
@@ -24,6 +26,23 @@ export interface Routine {
   updated_at: string;
 }
 
+export interface Task {
+  id: string;
+  routine_id: string;
+  title: string;
+  instructions: string | null;
+  task_type: TaskType;
+  is_required: boolean;
+  requires_photo: boolean;
+  position: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface RoutineWithTasks extends Routine {
+  tasks: Task[];
+}
+
 export interface RoutineRun {
   id: string;
   routine_id: string;
@@ -35,6 +54,35 @@ export interface RoutineRun {
   notes: string | null;
   created_at: string;
   updated_at: string;
+}
+
+export interface TaskRun {
+  id: string;
+  routine_run_id: string;
+  task_id: string;
+  status: TaskRunStatus;
+  value_text: string | null;
+  comment: string | null;
+  completed_by: string | null;
+  completed_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/** A task_run joined with its task definition, for the run detail screen. */
+export interface TaskRunWithTask extends TaskRun {
+  task: Task | null;
+}
+
+/** A run joined with its routine name and its task_runs. */
+export interface RunDetail extends RoutineRun {
+  routine_name: string | null;
+  task_runs: TaskRunWithTask[];
+}
+
+/** A run row joined with its routine name, for list views. */
+export interface RoutineRunListItem extends RoutineRun {
+  routine_name: string | null;
 }
 
 export interface ExceptionRecord {

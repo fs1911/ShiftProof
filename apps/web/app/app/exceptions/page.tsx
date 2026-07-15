@@ -1,25 +1,79 @@
+import Link from "next/link";
+
 import {
   Badge,
   Card,
+  CardHeader,
   DataNotice,
   EmptyState,
+  ErrorBanner,
+  Field,
   PageHeader,
+  exceptionStatusTone,
+  inputClass,
+  secondaryButtonClass,
+  severityTone,
 } from "@/components/ui";
 import { getExceptions } from "@/lib/data/exceptions";
 
+import { raiseException } from "./actions";
+
 export const dynamic = "force-dynamic";
 
-export default async function ExceptionsPage() {
+export default async function ExceptionsPage({
+  searchParams,
+}: {
+  searchParams: { error?: string };
+}) {
   const exceptions = await getExceptions(false, 100);
 
   return (
-    <div>
+    <div className="space-y-6">
       <PageHeader
         title="Exceptions"
         description="Issues raised during shifts and their follow-up status."
       />
 
+      <ErrorBanner message={searchParams.error} />
       <DataNotice error={exceptions.error} />
+
+      <Card>
+        <CardHeader>Raise an exception</CardHeader>
+        <div className="p-4">
+          <details>
+            <summary className="cursor-pointer text-sm font-medium text-brand-700">
+              New exception
+            </summary>
+            <div className="mt-3 max-w-xl">
+              <form action={raiseException} className="space-y-3">
+                <input type="hidden" name="redirect_to" value="/app/exceptions" />
+                <Field label="Title">
+                  <input
+                    name="title"
+                    type="text"
+                    required
+                    className={inputClass}
+                    placeholder="Walk-in fridge running warm"
+                  />
+                </Field>
+                <Field label="Details" hint="Optional.">
+                  <textarea name="description" rows={3} className={inputClass} />
+                </Field>
+                <Field label="Severity">
+                  <select name="severity" className={inputClass} defaultValue="medium">
+                    <option value="low">Low</option>
+                    <option value="medium">Medium</option>
+                    <option value="high">High</option>
+                  </select>
+                </Field>
+                <button type="submit" className={secondaryButtonClass}>
+                  Raise exception
+                </button>
+              </form>
+            </div>
+          </details>
+        </div>
+      </Card>
 
       {exceptions.rows.length === 0 ? (
         <EmptyState
@@ -38,13 +92,20 @@ export default async function ExceptionsPage() {
             </thead>
             <tbody className="divide-y divide-slate-100">
               {exceptions.rows.map((ex) => (
-                <tr key={ex.id}>
-                  <td className="px-4 py-3 text-slate-800">{ex.title}</td>
+                <tr key={ex.id} className="hover:bg-slate-50">
+                  <td className="px-4 py-3">
+                    <Link
+                      href={`/app/exceptions/${ex.id}`}
+                      className="font-medium text-brand-700 hover:underline"
+                    >
+                      {ex.title}
+                    </Link>
+                  </td>
                   <td className="px-4 py-3">
                     <Badge tone={severityTone(ex.severity)}>{ex.severity}</Badge>
                   </td>
                   <td className="px-4 py-3">
-                    <Badge tone={statusTone(ex.status)}>
+                    <Badge tone={exceptionStatusTone(ex.status)}>
                       {ex.status.replace("_", " ")}
                     </Badge>
                   </td>
@@ -56,16 +117,4 @@ export default async function ExceptionsPage() {
       )}
     </div>
   );
-}
-
-function severityTone(severity: string): "red" | "amber" | "slate" {
-  if (severity === "high") return "red";
-  if (severity === "medium") return "amber";
-  return "slate";
-}
-
-function statusTone(status: string): "green" | "amber" | "blue" {
-  if (status === "resolved") return "green";
-  if (status === "in_progress") return "blue";
-  return "amber";
 }

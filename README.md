@@ -64,7 +64,7 @@ The repository began as a **bootstrap** (docs, structure, and database contracts
 
 1. **Provision Supabase.** Create the project, run `supabase/schema.sql`, then `supabase/policies.sql`. Create a storage bucket for photos. Enable email/password auth and provision at least one user.
 2. **Wire environment.** Copy `.env.example` into Railway (and any preview environments). Fill in Supabase and app values.
-3. ✅ **Web app scaffold.** The Next.js app under `apps/web/` is in place — see `apps/web/README.md`. Next up is building out real creation/capture/triage flows on top of it.
+3. ✅ **Web app + core loop.** The Next.js app under `apps/web/` is in place, including the core routine loop — authoring routines/tasks, running them with per-task capture, and raising/triaging exceptions (see `apps/web/README.md`). Photo/Storage capture is the next block.
 4. **Deploy on Railway.** Connect the GitHub repo to Railway. Railway builds with `npm run build` and serves with `npm run start` (see `railway.json`); set the environment variables from step 2.
 5. **Iterate on the MVP.** Follow `docs/MVP.md` — keep scope narrow, ship the core routine → run → proof → exception loop first.
 

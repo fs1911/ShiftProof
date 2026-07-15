@@ -1,15 +1,26 @@
+import Link from "next/link";
+
 import {
   Badge,
   Card,
   DataNotice,
   EmptyState,
+  ErrorBanner,
   PageHeader,
+  primaryButtonClass,
 } from "@/components/ui";
+import { canManage, getAppContext } from "@/lib/auth/context";
 import { getRoutines } from "@/lib/data/routines";
 
 export const dynamic = "force-dynamic";
 
-export default async function RoutinesPage() {
+export default async function RoutinesPage({
+  searchParams,
+}: {
+  searchParams: { error?: string };
+}) {
+  const ctxResult = await getAppContext();
+  const manager = ctxResult.ok && canManage(ctxResult.context.role);
   const routines = await getRoutines();
 
   return (
@@ -18,23 +29,25 @@ export default async function RoutinesPage() {
         title="Routines"
         description="Reusable shift routines for your location."
         action={
-          <button
-            type="button"
-            disabled
-            title="Routine creation is coming in a later step."
-            className="cursor-not-allowed rounded-md bg-brand-600 px-4 py-2 text-sm font-semibold text-white opacity-60"
-          >
-            New routine
-          </button>
+          manager ? (
+            <Link href="/app/routines/new" className={primaryButtonClass}>
+              New routine
+            </Link>
+          ) : undefined
         }
       />
 
+      <ErrorBanner message={searchParams.error} />
       <DataNotice error={routines.error} />
 
       {routines.rows.length === 0 ? (
         <EmptyState
           title="No routines yet"
-          description="Create routines like Opening, Closing, or Weekly deep clean. Creation lands in the next implementation step."
+          description={
+            manager
+              ? "Create routines like Opening, Closing, or Weekly deep clean to get started."
+              : "No routines have been set up for your location yet."
+          }
         />
       ) : (
         <Card>
@@ -48,8 +61,15 @@ export default async function RoutinesPage() {
             </thead>
             <tbody className="divide-y divide-slate-100">
               {routines.rows.map((routine) => (
-                <tr key={routine.id}>
-                  <td className="px-4 py-3 text-slate-800">{routine.name}</td>
+                <tr key={routine.id} className="hover:bg-slate-50">
+                  <td className="px-4 py-3">
+                    <Link
+                      href={`/app/routines/${routine.id}`}
+                      className="font-medium text-brand-700 hover:underline"
+                    >
+                      {routine.name}
+                    </Link>
+                  </td>
                   <td className="px-4 py-3 text-slate-600">{routine.frequency}</td>
                   <td className="px-4 py-3">
                     <Badge tone={routine.is_active ? "green" : "slate"}>

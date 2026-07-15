@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import {
   Badge,
   Card,
@@ -6,6 +8,8 @@ import {
   EmptyState,
   PageHeader,
   StatCard,
+  runStatusTone,
+  severityTone,
 } from "@/components/ui";
 import { getExceptions } from "@/lib/data/exceptions";
 import { getRecentRuns } from "@/lib/data/runs";
@@ -55,10 +59,13 @@ export default async function DashboardPage() {
                     key={run.id}
                     className="flex items-center justify-between py-2.5 text-sm"
                   >
-                    <span className="text-slate-700">
-                      Run {run.id.slice(0, 8)}
-                    </span>
-                    <Badge tone={run.status === "completed" ? "green" : "amber"}>
+                    <Link
+                      href={`/app/runs/${run.id}`}
+                      className="truncate pr-3 text-brand-700 hover:underline"
+                    >
+                      {run.routine_name ?? "Routine"}
+                    </Link>
+                    <Badge tone={runStatusTone(run.status)}>
                       {run.status.replace("_", " ")}
                     </Badge>
                   </li>
@@ -83,7 +90,12 @@ export default async function DashboardPage() {
                     key={ex.id}
                     className="flex items-center justify-between py-2.5 text-sm"
                   >
-                    <span className="truncate pr-3 text-slate-700">{ex.title}</span>
+                    <Link
+                      href={`/app/exceptions/${ex.id}`}
+                      className="truncate pr-3 text-brand-700 hover:underline"
+                    >
+                      {ex.title}
+                    </Link>
                     <Badge tone={severityTone(ex.severity)}>{ex.severity}</Badge>
                   </li>
                 ))}
@@ -105,10 +117,4 @@ function isToday(iso: string | null): boolean {
     d.getMonth() === now.getMonth() &&
     d.getDate() === now.getDate()
   );
-}
-
-function severityTone(severity: string): "red" | "amber" | "slate" {
-  if (severity === "high") return "red";
-  if (severity === "medium") return "amber";
-  return "slate";
 }

@@ -127,3 +127,72 @@ export function DataNotice({ error }: { error: string | null }) {
     </div>
   );
 }
+
+/** Shows a form action error passed back via the `?error=` query param. */
+export function ErrorBanner({ message }: { message?: string }) {
+  if (!message) return null;
+  return (
+    <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+      {message}
+    </div>
+  );
+}
+
+/** A form field: label above its control. */
+export function Field({
+  label,
+  htmlFor,
+  children,
+  hint,
+}: {
+  label: string;
+  htmlFor?: string;
+  children: ReactNode;
+  hint?: string;
+}) {
+  return (
+    <div>
+      <label htmlFor={htmlFor} className="block text-sm font-medium text-slate-700">
+        {label}
+      </label>
+      {children}
+      {hint ? <p className="mt-1 text-xs text-slate-400">{hint}</p> : null}
+    </div>
+  );
+}
+
+// Shared control styles for text inputs, selects, and textareas.
+export const inputClass =
+  "mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm shadow-sm outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500";
+
+export const primaryButtonClass =
+  "inline-flex items-center justify-center rounded-md bg-brand-600 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700";
+
+export const secondaryButtonClass =
+  "inline-flex items-center justify-center rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100";
+
+/** Human labels + badge tones for the enums the screens render. */
+export function severityTone(severity: string): BadgeTone {
+  if (severity === "high") return "red";
+  if (severity === "medium") return "amber";
+  return "slate";
+}
+
+export function runStatusTone(status: string): BadgeTone {
+  if (status === "completed") return "green";
+  if (status === "in_progress") return "amber";
+  return "slate";
+}
+
+export function exceptionStatusTone(status: string): BadgeTone {
+  if (status === "resolved") return "green";
+  if (status === "in_progress") return "blue";
+  return "amber";
+}
+
+export function taskRunStatusTone(status: string): BadgeTone {
+  if (status === "completed") return "green";
+  if (status === "skipped") return "slate";
+  if (status === "failed") return "red";
+  return "amber";
+}
