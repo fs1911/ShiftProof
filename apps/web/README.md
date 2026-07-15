@@ -43,6 +43,10 @@ apps/web/
         page.tsx            # /app/reports — manager/owner summaries + date filter
         export/runs/route.ts        # CSV export of runs
         export/exceptions/route.ts  # CSV export of exceptions
+      settings/
+        locations/page.tsx  # Create/manage owned locations
+        members/page.tsx    # Manage members of the active location
+        actions.ts          # createLocation, updateLocation, add/change/removeMember
   components/
     app-shell.tsx           # Top bar + side nav + content area
     ui.tsx                  # Small UI primitives + shared tones/classes
@@ -60,6 +64,7 @@ apps/web/
       exceptions.ts         # getExceptions(), getException()
       photos.ts             # getRunPhotos() + server-signed URLs (shift-photos)
       reports.ts            # getRunSummary/getExceptionSummary, CSV export helpers
+      members.ts            # getLocationMembers() (RPC), getOwnedLocations()
   types/db.ts               # Hand-written entity types (mirror schema.sql)
   middleware.ts             # Wires updateSession() across requests
 ```
@@ -72,6 +77,7 @@ apps/web/
 - Every write goes through the RLS-governed server client (anon key). The service-role client is never used for these flows. App-level role checks mirror the database policies for clear UX.
 
 - **Managers/owners** additionally get **Reports** (`/app/reports`): read-only, active-location-scoped summaries for a date range (run counts + completion rate, per-routine counts, exceptions by status/severity) and CSV export of runs and exceptions. Staff don't see the Reports nav item, and the export routes re-check the role server-side.
+- **Onboarding / Settings** (`/app/settings`): owners create and rename/activate locations (`/app/settings/locations`); owners/managers manage members of the active location (`/app/settings/members`) — add an existing user by email, change roles (owner-only), and remove members. These go through `SECURITY DEFINER` RPCs (`create_location`, `add_member_by_email`, `set_member_role`, `remove_member`) invoked with the RLS client — never the service-role key. A user with no location can create their own (becoming owner) from the "no location" notice.
 
 **Multiple locations:** a user can belong to several locations, each with its own role. When they belong to more than one, the app shell shows a **location switcher**; the choice is stored in the HTTP-only `sp_active_location` cookie (validated server-side against their memberships, default = earliest-joined). Every screen and Server Action reads/writes only the **active location**, so data from the user's other locations is never mixed in. RLS is still the security boundary; the active-location filter is the in-app scoping among the user's own locations.
 

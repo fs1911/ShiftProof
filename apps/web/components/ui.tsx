@@ -130,14 +130,21 @@ export function DataNotice({ error }: { error: string | null }) {
 
 /**
  * Shown on app screens when the signed-in user has no location membership yet.
- * Provisioning a user + location + membership is a server-side/onboarding step.
+ * The user can create their own location (becoming its owner) or wait to be
+ * added to one by an existing owner/manager.
  */
 export function NoLocationNotice() {
   return (
-    <EmptyState
-      title="No location assigned"
-      description="Your account isn't linked to a location yet. An owner or administrator needs to add you to one before you can use ShiftProof."
-    />
+    <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-slate-300 bg-white px-6 py-12 text-center">
+      <p className="text-sm font-medium text-slate-700">No location assigned</p>
+      <p className="mt-1 max-w-sm text-sm text-slate-500">
+        Your account isn&apos;t linked to a location yet. Create your own to get
+        started, or ask an owner to add you to theirs.
+      </p>
+      <a href="/app/settings/locations" className={`mt-4 ${primaryButtonClass}`}>
+        Create a location
+      </a>
+    </div>
   );
 }
 

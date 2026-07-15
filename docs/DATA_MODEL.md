@@ -58,6 +58,8 @@ locations ─┬─< user_locations >─ users
 - `role` (enum: `owner` | `manager` | `staff`)
 - Unique on (`user_id`, `location_id`).
 
+**Provisioning (onboarding):** locations and memberships are created in-app via `SECURITY DEFINER` functions in `supabase/policies.sql`, invoked from the RLS-governed client (never the service-role key): `create_location` (caller becomes owner; self-provisions the caller's `users` row from `auth.users`), `add_member_by_email`, `set_member_role`, and `remove_member`. These enforce the role rules (owners grant any role and manage everyone; managers manage staff; the last owner is protected) and the by-email lookup that `users_select_self` would otherwise block. `auth.users` is still created by Supabase Auth on sign-up.
+
 **Relationships:**
 - Belongs to many `locations` (through `user_locations`), each with a role.
 - Starts many `routine_runs` (as the runner).

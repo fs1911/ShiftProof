@@ -13,7 +13,10 @@ const BASE_NAV_ITEMS = [
   { href: "/app/exceptions", label: "Exceptions" },
 ];
 
-const REPORTS_NAV_ITEM = { href: "/app/reports", label: "Reports" };
+const MANAGE_NAV_ITEMS = [
+  { href: "/app/reports", label: "Reports" },
+  { href: "/app/settings/members", label: "Settings" },
+];
 
 export interface ShellLocation {
   id: string;
@@ -29,18 +32,18 @@ export function AppShell({
   email,
   locations,
   activeLocationId,
-  showReports,
+  canManage,
   children,
 }: {
   email: string | null;
   locations: ShellLocation[];
   activeLocationId: string | null;
-  showReports: boolean;
+  canManage: boolean;
   children: ReactNode;
 }) {
   const pathname = usePathname();
-  const navItems = showReports
-    ? [...BASE_NAV_ITEMS, REPORTS_NAV_ITEM]
+  const navItems = canManage
+    ? [...BASE_NAV_ITEMS, ...MANAGE_NAV_ITEMS]
     : BASE_NAV_ITEMS;
 
   return (
