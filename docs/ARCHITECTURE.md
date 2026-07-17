@@ -136,6 +136,27 @@ Reviewed with the Supabase security/performance advisors and mirrored in `supaba
 
 Accepted / dashboard-only items (not code): `pg_net` lives in the `public` schema (Supabase default; left in place — moving it risks the active cron job); **leaked-password protection** should be enabled in the Supabase dashboard (Authentication → Providers/Password) — a project setting, not schema. "Unused index" advisories are expected on a low-traffic project and are retained for production query patterns.
 
+### Cron monitoring
+
+`supabase/monitoring.sql` defines three ops-only views in the **`ops`** schema (not exposed via PostgREST, so unreachable from the app/API — query them from the SQL editor or connector):
+
+- `ops.digest_cron_schedule` — the scheduled job (expect one row, `active = true`).
+- `ops.digest_cron_runs` — scheduler execution history from `cron.job_run_details` (did the cron SQL fire? `status = 'succeeded'` = the `net.http_post` was issued, not the app's HTTP result).
+- `ops.digest_http_responses` — the app's actual replies via `pg_net`. `ok = false` flags a non-200 (e.g. `401` = `CRON_SECRET` mismatch between Railway and Vault). `pg_net` retains rows only for a short window, so this is a near-real-time health signal.
+
+Quick health check: `select * from ops.digest_http_responses order by responded_at desc limit 5;` — all recent rows should be `ok = true`.
+
+**Secret rotation:** to rotate `CRON_SECRET`, set the new value in Railway, then update the Vault copy in one statement (keeps them in lockstep):
+
+```sql
+select vault.update_secret(
+  (select id from vault.secrets where name = 'shiftproof_cron_secret'),
+  '<NEW_CRON_SECRET>'
+);
+```
+
+Fire the cron once afterward (`net.http_post(...)`) and confirm `ops.digest_http_responses` shows a fresh `ok = true` row.
+
 ## Key technical decisions
 
 1. **Next.js for the web app.** Server and client rendering in one framework, good fit for Railway, and works cleanly with Supabase's JS client. (Framework choice is a strong default, not yet locked — see gaps.)
