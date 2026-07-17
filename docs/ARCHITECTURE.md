@@ -104,7 +104,7 @@ The `routine → run → proof → exception → follow-up` loop is implemented 
 
 The production deployment (verified end-to-end):
 
-- **Railway service** `@shiftproof/web` in project **ShiftProof**, deploying from GitHub **`main`** (auto-deploy on push), root directory = repo root so `railway.json` (Nixpacks; build `npm run build`, start `npm run start`) applies. Public URL: `https://shiftproofweb-production.up.railway.app`.
+- **Railway service** `@shiftproof/web` in project **ShiftProof**, deploying from GitHub **`main`** (auto-deploy on push), root directory = repo root so `railway.json` (Nixpacks; build `npm run build`, start `npm run start`) applies. Public URL: `https://app.shift-proof.com` (custom domain via Cloudflare → Railway). The Railway origin `https://shiftproofweb-production.up.railway.app` stays valid and is what the digest cron endpoint targets.
 - **Supabase project** `shiftproof` (ref `aaphpdyhvlxjjnknyohh`, region eu-north-1). Schema/policies are applied from `supabase/*.sql` (canonical in the repo).
 - **Required env vars** (set in Railway, never in the repo): `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` (public); `SUPABASE_SERVICE_ROLE_KEY` (server-only, used only by the admin client for digest/cron); `APP_BASE_URL` (must equal the public URL). Optional: `RESEND_API_KEY` + `EMAIL_FROM` (enable digest email; unset ⇒ in-app-only), `CRON_SECRET` (guards the digest endpoint; unset ⇒ endpoint refuses all).
 - **Daily digest automation:** a scheduler issues `POST /api/cron/due-digest` daily with `Authorization: Bearer <CRON_SECRET>`. Recommended: Supabase **pg_cron** + **pg_net**, with the secret held in **Supabase Vault** (not hardcoded in the job). Example:
