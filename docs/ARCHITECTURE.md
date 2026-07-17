@@ -125,6 +125,17 @@ The production deployment (verified end-to-end):
   ```
 - **Idempotency & safety:** the digest is idempotent per (location, day) via `notifications.dedupe_key`, and email is idempotent via `emailed_at`. The cron endpoint is inert without `CRON_SECRET`. The service-role key is used only server-side (admin client) for the digest/cron system flows and is never exposed to the browser.
 
+### Security hardening (Supabase advisors)
+
+Reviewed with the Supabase security/performance advisors and mirrored in `supabase/*.sql`:
+
+- **RLS** is enabled with at least one policy on every table in `public` (and on `storage.objects` for the `shift-photos` bucket) — the primary access boundary.
+- **Least-privilege function grants:** the default `anon` `EXECUTE` grant is revoked on all `SECURITY DEFINER` functions (RLS helpers, onboarding RPCs). `create_digest_notifications` is restricted to `service_role` only (called solely by the server-side admin client). The remaining "signed-in users can execute SECURITY DEFINER function" advisories are **by design** — the RLS helpers must be callable by `authenticated` to evaluate policies, and the onboarding RPCs self-authorize internally (owner/manager checks) before acting.
+- **`search_path` pinned** on the shared `set_updated_at` trigger function.
+- **Covering indexes** added for all foreign keys flagged by the performance advisor (`exceptions.raised_by/resolved_by`, `notifications.related_routine_id`, `photos.uploaded_by`, `task_runs.completed_by`).
+
+Accepted / dashboard-only items (not code): `pg_net` lives in the `public` schema (Supabase default; left in place — moving it risks the active cron job); **leaked-password protection** should be enabled in the Supabase dashboard (Authentication → Providers/Password) — a project setting, not schema. "Unused index" advisories are expected on a low-traffic project and are retained for production query patterns.
+
 ## Key technical decisions
 
 1. **Next.js for the web app.** Server and client rendering in one framework, good fit for Railway, and works cleanly with Supabase's JS client. (Framework choice is a strong default, not yet locked — see gaps.)
