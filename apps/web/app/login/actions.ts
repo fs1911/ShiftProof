@@ -8,9 +8,9 @@ import { createClient } from "@/lib/supabase/server";
  * Email + password sign-in (MVP auth foundation).
  *
  * Dependency note: this requires the Supabase project to have email/password
- * auth enabled and at least one user provisioned. Sign-up, password reset, and
- * magic-link flows are deliberately deferred — scaffold the code here when the
- * product decides which onboarding path to support.
+ * auth enabled and at least one user provisioned. Password reset lives in
+ * /login/forgot + /auth/update-password (via /auth/callback). Self-serve
+ * sign-up and magic-link flows remain deferred.
  */
 export async function signIn(formData: FormData): Promise<void> {
   const email = String(formData.get("email") ?? "").trim();

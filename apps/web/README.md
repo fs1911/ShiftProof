@@ -115,7 +115,7 @@ Env is read lazily in `lib/env.ts`; a missing required value throws a clear erro
 
 - `/` and `/login` are **public**; everything under `/app` is **protected**.
 - Protection is enforced twice: at the edge in `middleware.ts` (redirects unauthenticated users to `/login`) and again in `app/app/layout.tsx` at render time (fail-closed).
-- Sign-in uses Supabase **email + password**. This requires the Supabase project to have email/password auth enabled and a user provisioned — sign-up, password reset, and magic-link flows are intentionally deferred.
+- Sign-in uses Supabase **email + password**. This requires the Supabase project to have email/password auth enabled and a user provisioned. **Password reset** is implemented: `/login/forgot` sends a reset email whose link hits `/auth/callback` (exchanges the code for a session) and lands on `/auth/update-password`. Self-serve sign-up and magic-link flows remain deferred.
 
 ## Intended responsibilities
 
