@@ -100,6 +100,31 @@ The `routine → run → proof → exception → follow-up` loop is implemented 
 - **Database:** SQL changes are made in `supabase/schema.sql` / `policies.sql` in the repo first, then applied to the Supabase project. The repo is the canonical definition; Supabase reflects it.
 - **Secrets:** never committed. `.env.example` is the contract; real values live in Railway (and Supabase project settings).
 
+## Deployment & operations
+
+The production deployment (verified end-to-end):
+
+- **Railway service** `@shiftproof/web` in project **ShiftProof**, deploying from GitHub **`main`** (auto-deploy on push), root directory = repo root so `railway.json` (Nixpacks; build `npm run build`, start `npm run start`) applies. Public URL: `https://shiftproofweb-production.up.railway.app`.
+- **Supabase project** `shiftproof` (ref `aaphpdyhvlxjjnknyohh`, region eu-north-1). Schema/policies are applied from `supabase/*.sql` (canonical in the repo).
+- **Required env vars** (set in Railway, never in the repo): `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` (public); `SUPABASE_SERVICE_ROLE_KEY` (server-only, used only by the admin client for digest/cron); `APP_BASE_URL` (must equal the public URL). Optional: `RESEND_API_KEY` + `EMAIL_FROM` (enable digest email; unset ⇒ in-app-only), `CRON_SECRET` (guards the digest endpoint; unset ⇒ endpoint refuses all).
+- **Daily digest automation:** a scheduler issues `POST /api/cron/due-digest` daily with `Authorization: Bearer <CRON_SECRET>`. Recommended: Supabase **pg_cron** + **pg_net**, with the secret held in **Supabase Vault** (not hardcoded in the job). Example:
+  ```sql
+  create extension if not exists pg_cron;
+  create extension if not exists pg_net;
+  -- store the secret once (matches Railway CRON_SECRET):
+  select vault.create_secret('<CRON_SECRET>', 'shiftproof_cron_secret');
+  -- schedule daily at 06:00 UTC:
+  select cron.schedule('shiftproof-due-digest', '0 6 * * *', $$
+    select net.http_post(
+      url := 'https://shiftproofweb-production.up.railway.app/api/cron/due-digest',
+      headers := jsonb_build_object('Authorization',
+        'Bearer ' || (select decrypted_secret from vault.decrypted_secrets
+                      where name = 'shiftproof_cron_secret'))
+    );
+  $$);
+  ```
+- **Idempotency & safety:** the digest is idempotent per (location, day) via `notifications.dedupe_key`, and email is idempotent via `emailed_at`. The cron endpoint is inert without `CRON_SECRET`. The service-role key is used only server-side (admin client) for the digest/cron system flows and is never exposed to the browser.
+
 ## Key technical decisions
 
 1. **Next.js for the web app.** Server and client rendering in one framework, good fit for Railway, and works cleanly with Supabase's JS client. (Framework choice is a strong default, not yet locked — see gaps.)
