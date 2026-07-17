@@ -8,6 +8,7 @@ import { setActiveLocation, signOut } from "@/app/app/actions";
 
 const BASE_NAV_ITEMS = [
   { href: "/app/dashboard", label: "Dashboard" },
+  { href: "/app/my", label: "My work" },
   { href: "/app/routines", label: "Routines" },
   { href: "/app/runs", label: "Runs" },
   { href: "/app/exceptions", label: "Exceptions" },
