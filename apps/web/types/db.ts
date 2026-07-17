@@ -38,6 +38,10 @@ export interface Task {
   task_type: TaskType;
   is_required: boolean;
   requires_photo: boolean;
+  /** Numeric target range + unit for `value` tasks (null = unbounded). */
+  value_min: number | null;
+  value_max: number | null;
+  value_unit: string | null;
   position: number;
   created_at: string;
   updated_at: string;

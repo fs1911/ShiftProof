@@ -82,7 +82,7 @@ export async function getRunDetail(
          routine:routines(name),
          task_runs(
            id, routine_run_id, task_id, status, value_text, comment, completed_by, completed_at, created_at, updated_at,
-           task:tasks(id, routine_id, title, instructions, task_type, is_required, requires_photo, position, created_at, updated_at)
+           task:tasks(id, routine_id, title, instructions, task_type, is_required, requires_photo, value_min, value_max, value_unit, position, created_at, updated_at)
          )`,
       )
       .eq("id", runId)

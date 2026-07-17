@@ -103,8 +103,12 @@ locations ─┬─< user_locations >─ users
 - `task_type` (enum: `checkbox` | `value` | `photo` | `comment`)
 - `is_required` (must be completed to finish the run)
 - `requires_photo` (proof photo required)
+- `value_min`, `value_max` (numeric, nullable) — optional target range for `value` tasks
+- `value_unit` (text, nullable) — display unit for the reading (e.g. `°C`, `kg`, `pH`)
 - `position` (integer, ordering within the routine)
 - `created_at`, `updated_at`
+
+**Typed value capture:** for a `value` task, a manager may set a numeric target range (`value_min`/`value_max`, either bound optional) and a `value_unit`. During a run, a captured reading parsed as a number that falls outside the range is **automatically flagged as an `exception`** (linked to the `task_run`), idempotently — re-saving the same reading never stacks duplicate exceptions. The range is advisory: it does not block completing the task, it records the breach for follow-up. `value_text` remains free-form, so non-numeric readings are simply not range-checked.
 
 **Relationships:**
 - Belongs to one `routine`.

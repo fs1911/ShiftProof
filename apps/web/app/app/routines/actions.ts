@@ -120,10 +120,14 @@ export async function createTask(formData: FormData): Promise<void> {
   const taskType = asTaskType(String(formData.get("task_type") ?? "checkbox"));
   const isRequired = formData.get("is_required") != null;
   const requiresPhoto = formData.get("requires_photo") != null;
+  const valueSpec = parseValueSpec(formData, taskType);
 
   if (!routineId) redirect("/app/routines");
   if (!title) {
     redirect(`/app/routines/${routineId}?error=${encodeURIComponent("Task title is required.")}`);
+  }
+  if (valueSpec.error) {
+    redirect(`/app/routines/${routineId}?error=${encodeURIComponent(valueSpec.error)}`);
   }
 
   const supabase = createClient();
@@ -145,6 +149,9 @@ export async function createTask(formData: FormData): Promise<void> {
     task_type: taskType,
     is_required: isRequired,
     requires_photo: requiresPhoto,
+    value_min: valueSpec.value_min,
+    value_max: valueSpec.value_max,
+    value_unit: valueSpec.value_unit,
     position: nextPosition,
   });
 
@@ -164,10 +171,14 @@ export async function updateTask(formData: FormData): Promise<void> {
   const taskType = asTaskType(String(formData.get("task_type") ?? "checkbox"));
   const isRequired = formData.get("is_required") != null;
   const requiresPhoto = formData.get("requires_photo") != null;
+  const valueSpec = parseValueSpec(formData, taskType);
 
   if (!id || !routineId) redirect("/app/routines");
   if (!title) {
     redirect(`/app/routines/${routineId}?error=${encodeURIComponent("Task title is required.")}`);
+  }
+  if (valueSpec.error) {
+    redirect(`/app/routines/${routineId}?error=${encodeURIComponent(valueSpec.error)}`);
   }
 
   const supabase = createClient();
@@ -179,6 +190,9 @@ export async function updateTask(formData: FormData): Promise<void> {
       task_type: taskType,
       is_required: isRequired,
       requires_photo: requiresPhoto,
+      value_min: valueSpec.value_min,
+      value_max: valueSpec.value_max,
+      value_unit: valueSpec.value_unit,
     })
     .eq("id", id);
 
@@ -302,4 +316,44 @@ function toInt(value: FormDataEntryValue | null): number | null {
 
 function asTaskType(value: string): TaskType {
   return (TASK_TYPES as string[]).includes(value) ? (value as TaskType) : "checkbox";
+}
+
+interface ValueSpec {
+  value_min: number | null;
+  value_max: number | null;
+  value_unit: string | null;
+  error: string | null;
+}
+
+/**
+ * Parse the optional numeric range + unit for a value task. The spec is only
+ * meaningful for `value` tasks; for any other type the fields are cleared to
+ * null so stale bounds never affect out-of-range flagging. Rejects a range
+ * where min > max.
+ */
+function parseValueSpec(formData: FormData, taskType: TaskType): ValueSpec {
+  if (taskType !== "value") {
+    return { value_min: null, value_max: null, value_unit: null, error: null };
+  }
+  const min = toNumber(formData.get("value_min"));
+  const max = toNumber(formData.get("value_max"));
+  const unit = emptyToNull(String(formData.get("value_unit") ?? ""));
+  if (min !== null && max !== null && min > max) {
+    return {
+      value_min: null,
+      value_max: null,
+      value_unit: null,
+      error: "The minimum value must not be greater than the maximum.",
+    };
+  }
+  return { value_min: min, value_max: max, value_unit: unit, error: null };
+}
+
+/** Parse a decimal number (accepts comma or dot), or null if blank/invalid. */
+function toNumber(value: FormDataEntryValue | null): number | null {
+  if (value == null) return null;
+  const raw = String(value).trim().replace(",", ".");
+  if (raw.length === 0) return null;
+  const n = Number.parseFloat(raw);
+  return Number.isFinite(n) ? n : null;
 }

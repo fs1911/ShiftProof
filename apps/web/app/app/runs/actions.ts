@@ -98,29 +98,27 @@ export async function saveTaskRun(formData: FormData): Promise<void> {
 
   const supabase = createClient();
 
+  // Load the task definition once (for photo enforcement + value-range check).
+  const { data: taskRunRow } = await supabase
+    .from("task_runs")
+    .select("task:tasks(title, task_type, requires_photo, value_min, value_max, value_unit)")
+    .eq("id", taskRunId)
+    .maybeSingle();
+  const taskField = (taskRunRow as { task: TaskSpec | TaskSpec[] | null } | null)?.task;
+  const task = (Array.isArray(taskField) ? taskField[0] : taskField) ?? null;
+
   // Enforce requires_photo: a photo task cannot be marked "completed" without
   // at least one attached photo. Skipped/failed are allowed (the proof gap is
   // captured by the status itself).
-  if (status === "completed") {
-    const { data: taskRun } = await supabase
-      .from("task_runs")
-      .select("task:tasks(requires_photo)")
-      .eq("id", taskRunId)
-      .maybeSingle();
-
-    const taskField = (taskRun as { task: { requires_photo: boolean } | { requires_photo: boolean }[] | null } | null)?.task;
-    const task = Array.isArray(taskField) ? taskField[0] : taskField;
-
-    if (task?.requires_photo) {
-      const { count } = await supabase
-        .from("photos")
-        .select("id", { count: "exact", head: true })
-        .eq("task_run_id", taskRunId);
-      if (!count || count === 0) {
-        redirect(
-          `/app/runs/${runId}?error=${encodeURIComponent("This task requires a photo before it can be marked done.")}`,
-        );
-      }
+  if (status === "completed" && task?.requires_photo) {
+    const { count } = await supabase
+      .from("photos")
+      .select("id", { count: "exact", head: true })
+      .eq("task_run_id", taskRunId);
+    if (!count || count === 0) {
+      redirect(
+        `/app/runs/${runId}?error=${encodeURIComponent("This task requires a photo before it can be marked done.")}`,
+      );
     }
   }
 
@@ -138,8 +136,81 @@ export async function saveTaskRun(formData: FormData): Promise<void> {
   if (error) {
     redirect(`/app/runs/${runId}?error=${encodeURIComponent(error.message)}`);
   }
+
+  // Auto-flag an out-of-range reading as an exception (best-effort, idempotent).
+  await maybeFlagOutOfRange(supabase, ctx, { runId, taskRunId, task, valueText });
+
   revalidatePath(`/app/runs/${runId}`);
   redirect(`/app/runs/${runId}`);
+}
+
+interface TaskSpec {
+  title: string;
+  task_type: string;
+  requires_photo: boolean;
+  value_min: number | null;
+  value_max: number | null;
+  value_unit: string | null;
+}
+
+const OUT_OF_RANGE_PREFIX = "Out-of-range:";
+
+/**
+ * When a `value` task with a target range gets a reading outside it, raise an
+ * exception automatically. Idempotent: skips if an unresolved out-of-range
+ * exception already exists for this task_run, so re-saving never stacks
+ * duplicates. Best-effort — a failure here never blocks the capture itself.
+ */
+async function maybeFlagOutOfRange(
+  supabase: ReturnType<typeof createClient>,
+  ctx: AppContext,
+  args: { runId: string; taskRunId: string; task: TaskSpec | null; valueText: string | null },
+): Promise<void> {
+  const { task, valueText, runId, taskRunId } = args;
+  if (!task || task.task_type !== "value") return;
+  if (task.value_min == null && task.value_max == null) return;
+
+  const reading = parseReading(valueText);
+  if (reading == null) return;
+
+  const outside =
+    (task.value_min != null && reading < task.value_min) ||
+    (task.value_max != null && reading > task.value_max);
+  if (!outside) return;
+
+  const { count } = await supabase
+    .from("exceptions")
+    .select("id", { count: "exact", head: true })
+    .eq("task_run_id", taskRunId)
+    .ilike("title", `${OUT_OF_RANGE_PREFIX}%`)
+    .in("status", ["open", "in_progress"]);
+  if (count && count > 0) return;
+
+  const unit = task.value_unit ? ` ${task.value_unit}` : "";
+  const range =
+    task.value_min != null && task.value_max != null
+      ? `${task.value_min}–${task.value_max}${unit}`
+      : task.value_min != null
+        ? `≥ ${task.value_min}${unit}`
+        : `≤ ${task.value_max}${unit}`;
+
+  await supabase.from("exceptions").insert({
+    location_id: ctx.locationId,
+    routine_run_id: runId,
+    task_run_id: taskRunId,
+    title: `${OUT_OF_RANGE_PREFIX} ${task.title}`,
+    description: `Captured "${valueText}" — outside target ${range}.`,
+    severity: "high",
+    status: "open",
+    raised_by: ctx.userId,
+  });
+}
+
+/** Extract the first numeric token from a free-form reading (accepts comma). */
+function parseReading(text: string | null): number | null {
+  if (!text) return null;
+  const match = text.replace(",", ".").match(/-?\d+(\.\d+)?/);
+  return match ? Number.parseFloat(match[0]) : null;
 }
 
 /** Complete a run. Blocks if any required task is still pending. */
