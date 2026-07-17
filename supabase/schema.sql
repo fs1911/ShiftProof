@@ -137,9 +137,17 @@ create table tasks (
   task_type     task_type not null default 'checkbox',
   is_required   boolean not null default true,
   requires_photo boolean not null default false,
+  -- Optional numeric target range + unit for `value` tasks. A captured reading
+  -- outside [value_min, value_max] is auto-flagged as an exception by the app.
+  value_min     numeric,
+  value_max     numeric,
+  value_unit    text,
   position      integer not null default 0,
   created_at    timestamptz not null default now(),
-  updated_at    timestamptz not null default now()
+  updated_at    timestamptz not null default now(),
+  -- If both bounds are set, min must not exceed max.
+  constraint tasks_value_range_chk
+    check (value_min is null or value_max is null or value_min <= value_max)
 );
 
 create trigger tasks_set_updated_at

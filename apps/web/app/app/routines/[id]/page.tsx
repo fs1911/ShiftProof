@@ -364,6 +364,48 @@ function TaskForm({
           </label>
         </div>
       </div>
+
+      {/* Value-task target range. Only applied for the "Value" type; a reading
+          outside the range is auto-flagged as an exception during a run. */}
+      <fieldset className="rounded-md border border-slate-200 p-3">
+        <legend className="px-1 text-xs font-medium text-slate-500">
+          Value range (for &ldquo;Value&rdquo; tasks — optional)
+        </legend>
+        <div className="grid gap-3 sm:grid-cols-3">
+          <Field label="Min" hint="Readings below flag.">
+            <input
+              name="value_min"
+              type="number"
+              step="any"
+              inputMode="decimal"
+              defaultValue={task?.value_min ?? ""}
+              className={inputClass}
+              placeholder="e.g. 0"
+            />
+          </Field>
+          <Field label="Max" hint="Readings above flag.">
+            <input
+              name="value_max"
+              type="number"
+              step="any"
+              inputMode="decimal"
+              defaultValue={task?.value_max ?? ""}
+              className={inputClass}
+              placeholder="e.g. 5"
+            />
+          </Field>
+          <Field label="Unit">
+            <input
+              name="value_unit"
+              type="text"
+              defaultValue={task?.value_unit ?? ""}
+              className={inputClass}
+              placeholder="°C, kg, pH…"
+            />
+          </Field>
+        </div>
+      </fieldset>
+
       <button type="submit" className={primaryButtonClass}>
         {submitLabel}
       </button>

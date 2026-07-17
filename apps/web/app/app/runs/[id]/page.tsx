@@ -18,7 +18,7 @@ import {
 import { canManage, getAppContext } from "@/lib/auth/context";
 import { getRunPhotos } from "@/lib/data/photos";
 import { getRunDetail } from "@/lib/data/runs";
-import type { PhotoWithUrl, TaskRunWithTask } from "@/types/db";
+import type { PhotoWithUrl, Task, TaskRunWithTask } from "@/types/db";
 
 import { raiseException } from "../../exceptions/actions";
 import {
@@ -185,8 +185,13 @@ function TaskRunItem({
 
       {/* Captured values (always shown when present) */}
       {taskRun.value_text ? (
-        <p className="mt-2 text-sm text-slate-700">
-          <span className="text-slate-400">Value:</span> {taskRun.value_text}
+        <p className="mt-2 flex flex-wrap items-center gap-2 text-sm text-slate-700">
+          <span>
+            <span className="text-slate-400">Value:</span> {taskRun.value_text}
+          </span>
+          {isOutOfRange(task, taskRun.value_text) ? (
+            <Badge tone="red">out of range</Badge>
+          ) : null}
         </p>
       ) : null}
       {taskRun.comment ? (
@@ -208,14 +213,19 @@ function TaskRunItem({
           <input type="hidden" name="run_id" value={runId} />
 
           {type === "value" ? (
-            <Field label="Reading / value">
-              <input
-                name="value_text"
-                type="text"
-                defaultValue={taskRun.value_text ?? ""}
-                className={inputClass}
-                placeholder="e.g. 3.5°C"
-              />
+            <Field label="Reading / value" hint={rangeLabel(task) ?? undefined}>
+              <div className="flex items-center gap-2">
+                <input
+                  name="value_text"
+                  type="text"
+                  defaultValue={taskRun.value_text ?? ""}
+                  className={inputClass}
+                  placeholder={task?.value_unit ? `e.g. 3.5 ${task.value_unit}` : "e.g. 3.5°C"}
+                />
+                {task?.value_unit ? (
+                  <span className="shrink-0 text-sm text-slate-500">{task.value_unit}</span>
+                ) : null}
+              </div>
             </Field>
           ) : (
             <input type="hidden" name="value_text" value={taskRun.value_text ?? ""} />
@@ -415,4 +425,34 @@ function runStatusTone(status: string): "green" | "amber" | "slate" {
 function formatDate(iso: string): string {
   const d = new Date(iso);
   return Number.isNaN(d.getTime()) ? "—" : d.toLocaleString();
+}
+
+/** Extract the first numeric token from a free-form reading (accepts comma). */
+function parseReading(text: string | null): number | null {
+  if (!text) return null;
+  const match = text.replace(",", ".").match(/-?\d+(\.\d+)?/);
+  return match ? Number.parseFloat(match[0]) : null;
+}
+
+/** True when a value task has a range and its captured reading falls outside it. */
+function isOutOfRange(task: Task | null, valueText: string | null): boolean {
+  if (!task || task.task_type !== "value") return false;
+  if (task.value_min == null && task.value_max == null) return false;
+  const n = parseReading(valueText);
+  if (n == null) return false;
+  return (
+    (task.value_min != null && n < task.value_min) ||
+    (task.value_max != null && n > task.value_max)
+  );
+}
+
+/** Human-readable target-range hint for a value task, or null if unbounded. */
+function rangeLabel(task: Task | null): string | null {
+  if (!task || (task.value_min == null && task.value_max == null)) return null;
+  const unit = task.value_unit ? ` ${task.value_unit}` : "";
+  if (task.value_min != null && task.value_max != null) {
+    return `Target ${task.value_min}–${task.value_max}${unit}`;
+  }
+  if (task.value_min != null) return `Target ≥ ${task.value_min}${unit}`;
+  return `Target ≤ ${task.value_max}${unit}`;
 }
