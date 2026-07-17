@@ -31,6 +31,7 @@ create type exception_status as enum ('open', 'in_progress', 'resolved');
 create or replace function set_updated_at()
 returns trigger
 language plpgsql
+set search_path = ''
 as $$
 begin
   new.updated_at = now();
@@ -204,6 +205,7 @@ create trigger task_runs_set_updated_at
 create index task_runs_routine_run_id_idx on task_runs (routine_run_id);
 create index task_runs_task_id_idx        on task_runs (task_id);
 create index task_runs_status_idx         on task_runs (status);
+create index task_runs_completed_by_idx   on task_runs (completed_by);
 
 -- ---------------------------------------------------------------------------
 -- photos  (proof images; binary lives in Supabase Storage)
@@ -221,6 +223,7 @@ create table photos (
 
 create index photos_task_run_id_idx on photos (task_run_id);
 create index photos_location_id_idx on photos (location_id);
+create index photos_uploaded_by_idx on photos (uploaded_by);
 
 -- ---------------------------------------------------------------------------
 -- exceptions  (issues / follow-ups with a resolution lifecycle)
@@ -256,6 +259,8 @@ create index exceptions_routine_run_id_idx on exceptions (routine_run_id);
 create index exceptions_task_run_id_idx    on exceptions (task_run_id);
 create index exceptions_status_idx         on exceptions (status);
 create index exceptions_assigned_to_idx    on exceptions (assigned_to);
+create index exceptions_raised_by_idx      on exceptions (raised_by);
+create index exceptions_resolved_by_idx    on exceptions (resolved_by);
 
 -- ---------------------------------------------------------------------------
 -- notifications  (in-app inbox; e.g. daily due/overdue digest)
@@ -283,6 +288,7 @@ create table notifications (
 
 create index notifications_user_unread_idx on notifications (user_id, is_read);
 create index notifications_location_idx     on notifications (location_id);
+create index notifications_related_routine_idx on notifications (related_routine_id);
 -- Unique per (user, dedupe_key). NULLs are distinct in Postgres, so ad-hoc
 -- notifications (dedupe_key null) are never deduped; keyed digests are.
 create unique index notifications_user_dedupe_idx

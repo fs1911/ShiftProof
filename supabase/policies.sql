@@ -68,6 +68,12 @@ as $$
   );
 $$;
 
+-- These helpers are used inside RLS policies (evaluated as the signed-in user),
+-- so `authenticated` must keep EXECUTE. They are never called anonymously —
+-- remove the anon EXECUTE grant Supabase adds by default (security advisor 0028).
+revoke execute on function is_location_member(uuid)           from anon;
+revoke execute on function has_location_role(uuid, user_role) from anon;
+
 -- ---------------------------------------------------------------------------
 -- Enable RLS on all tables
 -- ---------------------------------------------------------------------------
@@ -580,11 +586,19 @@ begin
 end;
 $$;
 
-grant execute on function create_location(text, text) to authenticated;
-grant execute on function list_location_members(uuid) to authenticated;
-grant execute on function add_member_by_email(uuid, text, user_role) to authenticated;
-grant execute on function set_member_role(uuid, uuid, user_role) to authenticated;
-grant execute on function remove_member(uuid, uuid) to authenticated;
+-- These RPCs are called only by signed-in owners/managers (they self-authorize
+-- internally). Grant EXECUTE to authenticated and revoke the default anon grant
+-- (security advisor 0028).
+grant  execute on function create_location(text, text) to authenticated;
+revoke execute on function create_location(text, text) from anon;
+grant  execute on function list_location_members(uuid) to authenticated;
+revoke execute on function list_location_members(uuid) from anon;
+grant  execute on function add_member_by_email(uuid, text, user_role) to authenticated;
+revoke execute on function add_member_by_email(uuid, text, user_role) from anon;
+grant  execute on function set_member_role(uuid, uuid, user_role) to authenticated;
+revoke execute on function set_member_role(uuid, uuid, user_role) from anon;
+grant  execute on function remove_member(uuid, uuid) to authenticated;
+revoke execute on function remove_member(uuid, uuid) from anon;
 
 -- ---------------------------------------------------------------------------
 -- notifications
@@ -647,4 +661,9 @@ begin
 end;
 $$;
 
-grant execute on function create_digest_notifications(uuid, date, text, text) to authenticated;
+-- Only the service-role admin client (server-side digest/cron) calls this — never
+-- a signed-in user session. Restrict EXECUTE to service_role; revoke the default
+-- anon and authenticated grants (security advisor 0028/0029).
+revoke execute on function create_digest_notifications(uuid, date, text, text) from anon;
+revoke execute on function create_digest_notifications(uuid, date, text, text) from authenticated;
+grant  execute on function create_digest_notifications(uuid, date, text, text) to service_role;
