@@ -115,7 +115,8 @@ Env is read lazily in `lib/env.ts`; a missing required value throws a clear erro
 
 - `/` and `/login` are **public**; everything under `/app` is **protected**.
 - Protection is enforced twice: at the edge in `middleware.ts` (redirects unauthenticated users to `/login`) and again in `app/app/layout.tsx` at render time (fail-closed).
-- Sign-in uses Supabase **email + password**. This requires the Supabase project to have email/password auth enabled and a user provisioned. **Password reset** is implemented: `/login/forgot` sends a reset email whose link hits `/auth/callback` (exchanges the code for a session) and lands on `/auth/update-password`. Self-serve sign-up and magic-link flows remain deferred.
+- Sign-in uses Supabase **email + password**. This requires the Supabase project to have email/password auth enabled and a user provisioned. **Password reset** (`/login/forgot`) and **invites** send an email whose link verifies server-side and lands on `/auth/update-password`. Self-serve sign-up and magic-link flows remain deferred.
+- **Email link flow (server-side / `@supabase/ssr`):** recovery and invite emails must use the **token-hash** pattern, linking to `/auth/confirm?token_hash={{ .TokenHash }}&type={recovery|invite}&next=/auth/update-password`. `/auth/confirm` calls `verifyOtp` (sets the session cookie) and forwards to `next`. `/auth/callback` handles the PKCE `code` flow (OAuth). Both build their redirects from `APP_BASE_URL` — never the incoming request host, which behind the Railway/Cloudflare proxy is the internal `localhost:PORT`. **Supabase dashboard:** set the "Reset Password" and "Invite user" email templates to the `/auth/confirm` token-hash link above (the default `{{ .ConfirmationURL }}` uses the implicit hash-token flow, which a server route cannot read).
 
 ## Intended responsibilities
 

@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import type { EmailOtpType } from "@supabase/supabase-js";
 
 import { getAppBaseUrl } from "@/lib/env";
 import { createClient } from "@/lib/supabase/server";
@@ -6,21 +7,26 @@ import { createClient } from "@/lib/supabase/server";
 export const dynamic = "force-dynamic";
 
 /**
- * PKCE / OAuth callback: exchanges a `code` for a session, then forwards to
- * `next`. Email OTP links (recovery/invite) use /auth/confirm instead.
+ * Email OTP confirmation for the server-side (@supabase/ssr) flow. Supabase's
+ * recovery/invite email templates link here with a `token_hash` + `type`; we
+ * verify it (which sets the auth session cookies) and forward to `next` — the
+ * set-password page. This is the SSR-correct alternative to the implicit
+ * (hash-token) flow, which a server route cannot read.
  *
  * Redirects are built from APP_BASE_URL, never the incoming request host —
- * behind the Railway/Cloudflare proxy the request host is the internal bind
- * address (localhost:PORT) and must never leak into a user-facing URL.
+ * behind the Railway/Cloudflare proxy the request host is the internal
+ * bind address (localhost:PORT), which must never leak into a user-facing URL.
  */
 export async function GET(request: NextRequest): Promise<NextResponse> {
-  const code = request.nextUrl.searchParams.get("code");
-  const next = safeNext(request.nextUrl.searchParams.get("next"));
+  const params = request.nextUrl.searchParams;
+  const tokenHash = params.get("token_hash");
+  const type = params.get("type") as EmailOtpType | null;
+  const next = safeNext(params.get("next"));
   const base = getAppBaseUrl();
 
-  if (code) {
+  if (tokenHash && type) {
     const supabase = createClient();
-    const { error } = await supabase.auth.exchangeCodeForSession(code);
+    const { error } = await supabase.auth.verifyOtp({ type, token_hash: tokenHash });
     if (!error) {
       return NextResponse.redirect(new URL(next, base));
     }
