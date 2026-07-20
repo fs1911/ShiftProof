@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
-import { getAppContext } from "@/lib/auth/context";
+import { canManage, getAppContext } from "@/lib/auth/context";
 import { createClient } from "@/lib/supabase/server";
 import type { AppContext } from "@/lib/auth/context";
 import type { ExceptionSeverity, ExceptionStatus } from "@/types/db";
@@ -98,6 +98,53 @@ export async function setExceptionStatus(formData: FormData): Promise<void> {
 
   const supabase = createClient();
   const { error } = await supabase.from("exceptions").update(patch).eq("id", id);
+
+  if (error) {
+    redirect(`${redirectTo}?error=${encodeURIComponent(error.message)}`);
+  }
+  revalidatePath(redirectTo);
+  redirect(redirectTo);
+}
+
+/**
+ * Assign an exception to a member of its location, or clear the assignment
+ * (empty value). Manager/owner only. The assignee is validated against the
+ * location's members (via the manager-gated RPC) so it can't be set to an
+ * arbitrary or non-member id. RLS still governs the update.
+ */
+export async function assignException(formData: FormData): Promise<void> {
+  const ctx = await requireMember();
+  const id = String(formData.get("id") ?? "");
+  const assigneeRaw = String(formData.get("assigned_to") ?? "").trim();
+  const redirectTo = safeInternal(
+    String(formData.get("redirect_to") ?? `/app/exceptions/${id}`),
+  );
+
+  if (!id) redirect("/app/exceptions");
+  if (!canManage(ctx.role)) {
+    redirect(`${redirectTo}?error=${encodeURIComponent("Only managers and owners can assign exceptions.")}`);
+  }
+
+  const supabase = createClient();
+
+  let assignedTo: string | null = null;
+  if (assigneeRaw) {
+    const { data: members } = await supabase.rpc("list_location_members", {
+      p_location_id: ctx.locationId,
+    });
+    const isMember = ((members ?? []) as { user_id: string }[]).some(
+      (m) => m.user_id === assigneeRaw,
+    );
+    if (!isMember) {
+      redirect(`${redirectTo}?error=${encodeURIComponent("Pick a member of this location.")}`);
+    }
+    assignedTo = assigneeRaw;
+  }
+
+  const { error } = await supabase
+    .from("exceptions")
+    .update({ assigned_to: assignedTo })
+    .eq("id", id);
 
   if (error) {
     redirect(`${redirectTo}?error=${encodeURIComponent(error.message)}`);
