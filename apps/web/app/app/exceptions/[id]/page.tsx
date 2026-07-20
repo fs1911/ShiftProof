@@ -16,10 +16,11 @@ import {
   secondaryButtonClass,
   severityTone,
 } from "@/components/ui";
-import { getAppContext } from "@/lib/auth/context";
+import { canManage, getAppContext } from "@/lib/auth/context";
 import { getException } from "@/lib/data/exceptions";
+import { getLocationMembers } from "@/lib/data/members";
 
-import { setExceptionStatus } from "../actions";
+import { assignException, setExceptionStatus } from "../actions";
 
 export const dynamic = "force-dynamic";
 
@@ -53,6 +54,15 @@ export default async function ExceptionDetailPage({
 
   const detailPath = `/app/exceptions/${exception.id}`;
   const resolved = exception.status === "resolved";
+  const manager = canManage(ctx.context.role);
+
+  // Members (for the assignment picker) are only listable by managers.
+  const members = manager
+    ? (await getLocationMembers(ctx.context.locationId)).members
+    : [];
+  const assignee = exception.assigned_to
+    ? members.find((m) => m.userId === exception.assigned_to) ?? null
+    : null;
 
   return (
     <div className="space-y-6">
@@ -108,6 +118,44 @@ export default async function ExceptionDetailPage({
           ) : null}
         </div>
       </Card>
+
+      {manager ? (
+        <Card>
+          <CardHeader>Assignment</CardHeader>
+          <div className="p-4">
+            <p className="mb-3 text-sm text-slate-600">
+              {assignee ? (
+                <>
+                  Assigned to <span className="font-medium text-slate-800">{assignee.email}</span>.
+                </>
+              ) : (
+                "Not assigned to anyone yet."
+              )}
+            </p>
+            <form action={assignException} className="flex flex-wrap items-end gap-2">
+              <input type="hidden" name="id" value={exception.id} />
+              <input type="hidden" name="redirect_to" value={detailPath} />
+              <Field label="Assign to">
+                <select
+                  name="assigned_to"
+                  defaultValue={exception.assigned_to ?? ""}
+                  className={inputClass}
+                >
+                  <option value="">Unassigned</option>
+                  {members.map((m) => (
+                    <option key={m.userId} value={m.userId}>
+                      {m.email} ({m.role})
+                    </option>
+                  ))}
+                </select>
+              </Field>
+              <button type="submit" className={secondaryButtonClass}>
+                Save
+              </button>
+            </form>
+          </div>
+        </Card>
+      ) : null}
 
       <Card>
         <CardHeader>Triage</CardHeader>

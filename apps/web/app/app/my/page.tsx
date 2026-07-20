@@ -72,7 +72,11 @@ export default async function MyWorkPage() {
         ) : (
           <ul className="divide-y divide-slate-100">
             {exceptions.rows.map((ex) => (
-              <MyExceptionRow key={ex.id} exception={ex} />
+              <MyExceptionRow
+                key={ex.id}
+                exception={ex}
+                assignedToMe={ex.assigned_to === userId}
+              />
             ))}
           </ul>
         )}
@@ -102,16 +106,25 @@ function MyRunRow({ run }: { run: MyOpenRun }) {
   );
 }
 
-function MyExceptionRow({ exception }: { exception: ExceptionRecord }) {
+function MyExceptionRow({
+  exception,
+  assignedToMe,
+}: {
+  exception: ExceptionRecord;
+  assignedToMe: boolean;
+}) {
   return (
     <li className="flex items-start justify-between gap-3 px-4 py-3">
       <div className="min-w-0">
-        <Link
-          href={`/app/exceptions/${exception.id}`}
-          className="font-medium text-brand-700 hover:underline"
-        >
-          {exception.title}
-        </Link>
+        <div className="flex flex-wrap items-center gap-2">
+          <Link
+            href={`/app/exceptions/${exception.id}`}
+            className="font-medium text-brand-700 hover:underline"
+          >
+            {exception.title}
+          </Link>
+          {assignedToMe ? <Badge tone="blue">assigned to you</Badge> : null}
+        </div>
         {exception.description ? (
           <p className="mt-0.5 truncate text-sm text-slate-500">{exception.description}</p>
         ) : null}
