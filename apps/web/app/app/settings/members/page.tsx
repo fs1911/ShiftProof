@@ -18,14 +18,14 @@ import { canManage, getAppContext } from "@/lib/auth/context";
 import { getLocationMembers, type LocationMember } from "@/lib/data/members";
 import type { UserRole } from "@/types/db";
 
-import { addMember, changeMemberRole, removeMember } from "../actions";
+import { changeMemberRole, inviteMember, removeMember } from "../actions";
 
 export const dynamic = "force-dynamic";
 
 export default async function MembersSettingsPage({
   searchParams,
 }: {
-  searchParams: { error?: string };
+  searchParams: { error?: string; ok?: string };
 }) {
   const ctx = await getAppContext();
 
@@ -72,15 +72,21 @@ export default async function MembersSettingsPage({
       />
       <SettingsTabs active="members" showMembers />
       <ErrorBanner message={searchParams.error} />
+      {searchParams.ok ? (
+        <div className="mb-4 rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-800">
+          {searchParams.ok}
+        </div>
+      ) : null}
 
       <div className="space-y-6">
         <Card className="max-w-xl p-6">
-          <h2 className="text-sm font-semibold text-slate-700">Add a member</h2>
+          <h2 className="text-sm font-semibold text-slate-700">Invite a member</h2>
           <p className="mt-1 text-sm text-slate-500">
-            The person must already have a ShiftProof account.
-            {isOwner ? "" : " Managers can add staff."}
+            We&apos;ll email them a link to set a password and join. If they already
+            have a ShiftProof account, they&apos;re added straight away.
+            {isOwner ? "" : " Managers can invite staff."}
           </p>
-          <form action={addMember} className="mt-4 space-y-4">
+          <form action={inviteMember} className="mt-4 space-y-4">
             <Field label="Email" htmlFor="email">
               <input
                 id="email"
@@ -99,7 +105,7 @@ export default async function MembersSettingsPage({
               </select>
             </Field>
             <button type="submit" className={primaryButtonClass}>
-              Add member
+              Send invite
             </button>
           </form>
         </Card>

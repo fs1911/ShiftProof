@@ -5,6 +5,8 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { ACTIVE_LOCATION_COOKIE, getAppContext } from "@/lib/auth/context";
+import { getAppBaseUrl } from "@/lib/env";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import type { UserRole } from "@/types/db";
 
@@ -145,6 +147,88 @@ export async function removeMember(formData: FormData): Promise<void> {
   }
   revalidatePath(MEMBERS_PATH);
   redirect(MEMBERS_PATH);
+}
+
+/**
+ * Invite someone to the active location by email + role.
+ *
+ * New person: create their auth account via Supabase invite (they set a password
+ * from the email link, landing on /auth/update-password) and provision their
+ * profile + first membership. Existing person: fall back to add_member_by_email.
+ *
+ * Owner/manager only; only an owner may grant owner/manager. The service-role
+ * admin client is used ONLY to create the auth user and its first membership —
+ * this action first enforces the same role rules the RLS RPCs would.
+ */
+export async function inviteMember(formData: FormData): Promise<void> {
+  const ctx = await requireManagerContext();
+  const email = String(formData.get("email") ?? "").trim().toLowerCase();
+  const role = asRole(String(formData.get("role") ?? "staff"));
+
+  if (!email) {
+    redirect(`${MEMBERS_PATH}?error=${encodeURIComponent("Enter the person's email.")}`);
+  }
+  // Only owners may grant elevated roles; managers may invite staff only.
+  if ((role === "owner" || role === "manager") && ctx.role !== "owner") {
+    redirect(
+      `${MEMBERS_PATH}?error=${encodeURIComponent("Only owners can invite managers or owners.")}`,
+    );
+  }
+
+  const admin = createAdminClient();
+  const { data, error } = await admin.auth.admin.inviteUserByEmail(email, {
+    redirectTo: `${getAppBaseUrl()}/auth/callback?next=/auth/update-password`,
+  });
+
+  if (error) {
+    // Already-registered users can't be invited again — add them directly.
+    if (isAlreadyRegistered(error.message)) {
+      const supabase = createClient();
+      const { error: addErr } = await supabase.rpc("add_member_by_email", {
+        p_location_id: ctx.locationId,
+        p_email: email,
+        p_role: role,
+      });
+      if (addErr) {
+        redirect(`${MEMBERS_PATH}?error=${encodeURIComponent(mapError(addErr.message))}`);
+      }
+      revalidatePath(MEMBERS_PATH);
+      redirect(`${MEMBERS_PATH}?ok=${encodeURIComponent("Existing account added to this location.")}`);
+    }
+    redirect(`${MEMBERS_PATH}?error=${encodeURIComponent(mapError(error.message))}`);
+  }
+
+  const newUserId = data.user?.id;
+  if (!newUserId) {
+    redirect(`${MEMBERS_PATH}?error=${encodeURIComponent("The invite could not be created.")}`);
+  }
+
+  // Provision the profile + first membership. The admin client bypasses RLS;
+  // the role rules were enforced above. Idempotent upserts.
+  await admin.from("users").upsert({ id: newUserId, email }, { onConflict: "id" });
+  const { error: memErr } = await admin
+    .from("user_locations")
+    .upsert(
+      { user_id: newUserId, location_id: ctx.locationId, role },
+      { onConflict: "user_id,location_id" },
+    );
+  if (memErr) {
+    redirect(`${MEMBERS_PATH}?error=${encodeURIComponent(memErr.message)}`);
+  }
+
+  revalidatePath(MEMBERS_PATH);
+  redirect(`${MEMBERS_PATH}?ok=${encodeURIComponent(`Invite sent to ${email}.`)}`);
+}
+
+/** Does an auth error mean the email already has an account? */
+function isAlreadyRegistered(message: string): boolean {
+  const m = message.toLowerCase();
+  return (
+    m.includes("already") ||
+    m.includes("registered") ||
+    m.includes("exists") ||
+    m.includes("duplicate")
+  );
 }
 
 async function requireManagerContext() {

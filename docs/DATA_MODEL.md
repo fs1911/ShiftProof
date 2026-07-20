@@ -58,7 +58,9 @@ locations ─┬─< user_locations >─ users
 - `role` (enum: `owner` | `manager` | `staff`)
 - Unique on (`user_id`, `location_id`).
 
-**Provisioning (onboarding):** locations and memberships are created in-app via `SECURITY DEFINER` functions in `supabase/policies.sql`, invoked from the RLS-governed client (never the service-role key): `create_location` (caller becomes owner; self-provisions the caller's `users` row from `auth.users`), `add_member_by_email`, `set_member_role`, and `remove_member`. These enforce the role rules (owners grant any role and manage everyone; managers manage staff; the last owner is protected) and the by-email lookup that `users_select_self` would otherwise block. `auth.users` is still created by Supabase Auth on sign-up.
+**Provisioning (onboarding):** locations and memberships are created in-app via `SECURITY DEFINER` functions in `supabase/policies.sql`, invoked from the RLS-governed client (never the service-role key): `create_location` (caller becomes owner; self-provisions the caller's `users` row from `auth.users`), `add_member_by_email`, `set_member_role`, and `remove_member`. These enforce the role rules (owners grant any role and manage everyone; managers manage staff; the last owner is protected) and the by-email lookup that `users_select_self` would otherwise block.
+
+**Inviting new people:** an owner/manager can invite an email that has no account yet (`inviteMember` in `app/app/settings/actions.ts`). This is the one sanctioned use of the service-role admin client for member management: it calls Supabase `auth.admin.inviteUserByEmail` (which creates `auth.users` and emails a set-password link → `/auth/callback` → `/auth/update-password`) and then upserts the `users` profile and the first `user_locations` membership. The action enforces the same role rules first (only an owner may grant owner/manager). If the email already has an account, it falls back to the RLS `add_member_by_email` RPC. Otherwise `auth.users` is created by Supabase Auth on sign-up.
 
 **Relationships:**
 - Belongs to many `locations` (through `user_locations`), each with a role.
