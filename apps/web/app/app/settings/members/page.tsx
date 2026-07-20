@@ -18,7 +18,7 @@ import { canManage, getAppContext } from "@/lib/auth/context";
 import { getLocationMembers, type LocationMember } from "@/lib/data/members";
 import type { UserRole } from "@/types/db";
 
-import { changeMemberRole, inviteMember, removeMember } from "../actions";
+import { changeMemberRole, inviteMember, removeMember, resendInvite } from "../actions";
 
 export const dynamic = "force-dynamic";
 
@@ -147,13 +147,30 @@ function MemberRow({
   return (
     <li className="flex flex-col gap-2 py-3 sm:flex-row sm:items-center sm:justify-between">
       <div className="min-w-0">
-        <p className="truncate font-medium text-slate-800">{member.email}</p>
+        <div className="flex items-center gap-2">
+          <p className="truncate font-medium text-slate-800">{member.email}</p>
+          {member.pending ? <Badge tone="amber">pending</Badge> : null}
+        </div>
         {member.fullName ? (
           <p className="text-sm text-slate-500">{member.fullName}</p>
+        ) : null}
+        {member.pending ? (
+          <p className="text-xs text-slate-400">Invited — hasn&apos;t set a password yet.</p>
         ) : null}
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
+        {member.pending ? (
+          <form action={resendInvite}>
+            <input type="hidden" name="user_id" value={member.userId} />
+            <button
+              type="submit"
+              className="rounded-md border border-slate-300 px-2 py-1 text-sm font-medium text-slate-700 hover:bg-slate-100"
+            >
+              Resend invite
+            </button>
+          </form>
+        ) : null}
         {isOwner ? (
           <form action={changeMemberRole} className="flex items-center gap-1">
             <input type="hidden" name="user_id" value={member.userId} />

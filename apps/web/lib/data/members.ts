@@ -8,6 +8,11 @@ export interface LocationMember {
   email: string;
   fullName: string | null;
   role: UserRole;
+  /** Auth status (from auth.users via the SECURITY DEFINER RPC, server-only). */
+  confirmed: boolean;
+  lastSignInAt: string | null;
+  /** Invited but hasn't confirmed/accepted yet. */
+  pending: boolean;
 }
 
 export interface OwnedLocation {
@@ -37,12 +42,17 @@ export async function getLocationMembers(
       email: string;
       full_name: string | null;
       role: UserRole;
+      confirmed: boolean;
+      last_sign_in_at: string | null;
     }[];
     const members = rows.map((r) => ({
       userId: r.user_id,
       email: r.email,
       fullName: r.full_name,
       role: r.role,
+      confirmed: r.confirmed,
+      lastSignInAt: r.last_sign_in_at,
+      pending: !r.confirmed,
     }));
     return { members, error: null };
   } catch (err) {

@@ -443,8 +443,19 @@ $$;
 
 -- List the members of a location (manager+ only). Returns emails, which the
 -- users_select_self policy would otherwise hide from co-members.
-create or replace function list_location_members(p_location_id uuid)
-returns table (user_id uuid, email text, full_name text, role user_role)
+-- Drop first: the return signature includes auth-status columns, which
+-- `create or replace` cannot change in place on an existing database.
+drop function if exists list_location_members(uuid);
+
+create function list_location_members(p_location_id uuid)
+returns table (
+  user_id uuid,
+  email text,
+  full_name text,
+  role user_role,
+  confirmed boolean,
+  last_sign_in_at timestamptz
+)
 language plpgsql
 security definer
 set search_path = public
@@ -453,10 +464,15 @@ begin
   if not has_location_role(p_location_id, 'manager') then
     raise exception 'NOT_ALLOWED';
   end if;
+  -- SECURITY DEFINER lets this read auth.users to surface invite status
+  -- (confirmed / last sign-in). These columns are rendered server-side only.
   return query
-    select ul.user_id, u.email, u.full_name, ul.role
+    select ul.user_id, u.email, u.full_name, ul.role,
+           (au.confirmed_at is not null) as confirmed,
+           au.last_sign_in_at
     from user_locations ul
     join users u on u.id = ul.user_id
+    left join auth.users au on au.id = ul.user_id
     where ul.location_id = p_location_id
     order by
       case ul.role when 'owner' then 0 when 'manager' then 1 else 2 end,
