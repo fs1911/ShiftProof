@@ -220,6 +220,43 @@ export async function inviteMember(formData: FormData): Promise<void> {
   redirect(`${MEMBERS_PATH}?ok=${encodeURIComponent(`Invite sent to ${email}.`)}`);
 }
 
+/**
+ * Re-send the set-password email to a pending member (owner/manager only).
+ * Uses resetPasswordForEmail — which for an invited, not-yet-accepted account
+ * delivers a fresh link to set a password (via the recovery email template →
+ * /auth/confirm → /auth/update-password). The target is confined to a member of
+ * the active location (looked up via the manager-gated RPC), so a manager can't
+ * trigger emails to arbitrary addresses.
+ */
+export async function resendInvite(formData: FormData): Promise<void> {
+  const ctx = await requireManagerContext();
+  const userId = String(formData.get("user_id") ?? "");
+  if (!userId) redirect(MEMBERS_PATH);
+
+  const supabase = createClient();
+  const { data, error: listErr } = await supabase.rpc("list_location_members", {
+    p_location_id: ctx.locationId,
+  });
+  if (listErr) {
+    redirect(`${MEMBERS_PATH}?error=${encodeURIComponent(mapError(listErr.message))}`);
+  }
+  const member = ((data ?? []) as { user_id: string; email: string }[]).find(
+    (m) => m.user_id === userId,
+  );
+  if (!member?.email) {
+    redirect(`${MEMBERS_PATH}?error=${encodeURIComponent("That person is no longer a member.")}`);
+  }
+
+  const { error } = await supabase.auth.resetPasswordForEmail(member.email, {
+    redirectTo: `${getAppBaseUrl()}/auth/callback?next=/auth/update-password`,
+  });
+  if (error) {
+    redirect(`${MEMBERS_PATH}?error=${encodeURIComponent(error.message)}`);
+  }
+  revalidatePath(MEMBERS_PATH);
+  redirect(`${MEMBERS_PATH}?ok=${encodeURIComponent(`Invite re-sent to ${member.email}.`)}`);
+}
+
 /** Does an auth error mean the email already has an account? */
 function isAlreadyRegistered(message: string): boolean {
   const m = message.toLowerCase();

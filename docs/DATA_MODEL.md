@@ -62,6 +62,8 @@ locations ─┬─< user_locations >─ users
 
 **Inviting new people:** an owner/manager can invite an email that has no account yet (`inviteMember` in `app/app/settings/actions.ts`). This is the one sanctioned use of the service-role admin client for member management: it calls Supabase `auth.admin.inviteUserByEmail` (which creates `auth.users` and emails a set-password link → `/auth/callback` → `/auth/update-password`) and then upserts the `users` profile and the first `user_locations` membership. The action enforces the same role rules first (only an owner may grant owner/manager). If the email already has an account, it falls back to the RLS `add_member_by_email` RPC. Otherwise `auth.users` is created by Supabase Auth on sign-up.
 
+**Invite status:** `list_location_members` (SECURITY DEFINER, manager-gated) also returns each member's `confirmed` and `last_sign_in_at` from `auth.users`, so the members screen can flag an invited-but-not-yet-confirmed person as **pending** and offer **Resend invite** (`resendInvite`, which sends a fresh set-password email via `resetPasswordForEmail`). These auth columns are read server-side only and never exposed to the browser.
+
 **Relationships:**
 - Belongs to many `locations` (through `user_locations`), each with a role.
 - Starts many `routine_runs` (as the runner).
